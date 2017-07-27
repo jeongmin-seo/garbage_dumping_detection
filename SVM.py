@@ -13,6 +13,7 @@ true_posi_frame = {}
 for i in files:
     true_posi_dict[i] = []
 
+
 def read_pose_(filename):
     f = open(filename, 'r')
     js = json.loads(f.read())
@@ -28,7 +29,7 @@ def import_data_(startnum, endnum, index):
     fileindex = files[index]
 
     while filenumber < endnum:
-        POSE_FILE = "/home/jmseo/Desktop/ETRI/%03d/%03d_%012d_keypoints.json" %(fileindex, fileindex, filenumber)
+        POSE_FILE = "/home/jmseo/Desktop/ETRI/%03d/%03d_%012d_keypoints.json" % (fileindex, fileindex, filenumber)
         POSE = {}
         POSE = read_pose_(POSE_FILE)
         people = POSE['people']
@@ -37,11 +38,9 @@ def import_data_(startnum, endnum, index):
             filenumber += 1
             continue
 
-
         for pose_list in enumerate(people):
             if pose_list[1]['pose_keypoints'][36] != 0 and pose_list[1]['pose_keypoints'][37] != 0 and \
                             pose_list[1]['pose_keypoints'][39] != 0 and pose_list[1]['pose_keypoints'][40] != 0:
-
 
                 if len(pose_list[1]['pose_keypoints']) == 54:
                     y.append(0)
@@ -79,10 +78,8 @@ def scaling_data_(posedata):
     scaling_posedata = [pose for pose in posedata]
 
     for pose in scaling_posedata:
-        Lknee = [pose[36], pose[37]]
-        LAnkle = [pose[39], pose[40]]
-        Rknee = [pose[27], pose[28]]
-        RAnkle = [pose[30], pose[31]]
+        Lknee, LAnkle = [pose[36], pose[37]], [pose[39], pose[40]]
+        Rknee, RAnkle = [pose[27], pose[28]], [pose[30], pose[31]]
         baseindex = 0
 
         Rdist = ((Rknee[0] - RAnkle[0]) ** 2 + (Rknee[1] - RAnkle[1]) ** 2) ** 0.5
@@ -95,6 +92,7 @@ def scaling_data_(posedata):
             baseindex += 1
 
     return scaling_posedata
+
 
 def check_true_positive_in_frame_(file_num, posi_list):
     file_path = "/home/jmseo/openpose/examples/media/ETRI/%03dresult.avi" % file_num
@@ -115,8 +113,7 @@ def check_true_positive_in_frame_(file_num, posi_list):
         if not ret:
             break
 
-        cv2.putText(frame, str(frame_num), (100, 100) ,font, 4,(255, 255, 255), 2, cv2.LINE_AA)
-
+        cv2.putText(frame, str(frame_num), (100, 100), font, 4, (255, 255, 255), 2, cv2.LINE_AA)
 
         if posi_list and frame_num == posi_list[0]:
             cv2.circle(frame, (int(width)-200, int(height)-100), 40, (255, 255, 255), 40)
@@ -131,13 +128,15 @@ def check_true_positive_in_frame_(file_num, posi_list):
                 temp = people[i]['pose_keypoints']
                 temp_x = [temp[i*3] for i in range(0, 18)]
                 temp_y = [temp[i*3 + 1] for i in range(0, 18)]
-                cv2.rectangle(frame, (int(min(filter(lambda x: x > 0, temp_x))), int(min(filter(lambda x: x > 0, temp_y)))), (int(max(temp_x)), int(max(temp_y))),
+                cv2.rectangle(frame,
+                              (int(min(filter(lambda x: x > 0, temp_x))), int(min(filter(lambda x: x > 0, temp_y)))),
+                              (int(max(temp_x)), int(max(temp_y))),
                               (0, 0, 255), thickness=3)
 
             posi_list.pop(0)
 
-        #frame_name = "%03d_check_positive_%06d.jpg" % (file_num, frame_num)
-        #cv2.imwrite(frame_name, frame)
+        # frame_name = "%03d_check_positive_%06d.jpg" % (file_num, frame_num)
+        # cv2.imwrite(frame_name, frame)
         out.write(frame)
         cv2.imshow('frame', frame)
         frame_num += 1
@@ -174,9 +173,8 @@ def main():
             coord_keypoint[len(coord_keypoint) - 1].append(point[i * 3])
             coord_keypoint[len(coord_keypoint) - 1].append(point[i * 3 + 1])
 
-
-
-    skf = StratifiedKFold(n_splits=10, shuffle=True) # shuffle = True
+    # 10fold & shuffle = True
+    skf = StratifiedKFold(n_splits=10, shuffle=True)
 
     # split train test
     for train_index, test_index in skf.split(coord_keypoint, pose_class):
@@ -224,16 +222,17 @@ def main():
                 elif test_class[i] == 1:
                     false_nega += 1
 
-
-        print('True Class: %d' %class_num, 'True Positive: %d' %true_posi, 'True Negative: %d' %true_nega, 'False Positive: %d' %false_posi, 'Missing: %d' %false_nega, 'All: %d' % len(test_class))
-
+        print('True Class: %d' % class_num,
+              'True Positive: %d' % true_posi,
+              'True Negative: %d' % true_nega,
+              'False Positive: %d' % false_posi,
+              'Missing: %d' % false_nega,
+              'All: %d' % len(test_class))
 
     for i in true_posi_dict.keys():
         true_posi_dict[i].sort()
         check_true_positive_in_frame_(i, true_posi_dict[i])
 
 
-
-
-if __name__ == "__main__":
+if __name__ == '__main__':
     main()

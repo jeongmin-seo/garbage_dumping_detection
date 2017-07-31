@@ -8,10 +8,10 @@ from scipy.optimize import linear_sum_assignment
 files = [1, 12, 30, 31, 43, 67, 69]
 frame = [404, 732, 1619, 1037, 1906, 874, 486]
 file_info = []
-true_posi_dict = {}
+true_positive_dict = {}
 true_posi_frame = {}
 for i in files:
-    true_posi_dict[i] = []
+    true_positive_dict[i] = []
 
 
 def read_pose_(filename):
@@ -205,7 +205,7 @@ def main():
             if y_pred[i] == 1:
                 if test_class[i] == 1:
                     true_posi += 1
-                    true_posi_dict[file_info[test_index[i]][0]].append(file_info[test_index[i]][1])
+                    true_positive_dict[file_info[test_index[i]][0]].append(file_info[test_index[i]][1])
 
                     if not file_info[test_index[i]][1] in true_posi_frame:
                         true_posi_frame[file_info[test_index[i]][1]] = []
@@ -229,9 +229,9 @@ def main():
               'Missing: %d' % false_nega,
               'All: %d' % len(test_class))
 
-    for i in true_posi_dict.keys():
-        true_posi_dict[i].sort()
-        check_true_positive_in_frame_(i, true_posi_dict[i])
+    for i in true_positive_dict.keys():
+        true_positive_dict[i].sort()
+        check_true_positive_in_frame_(i, true_positive_dict[i])
 
 
 if __name__ == '__main__':

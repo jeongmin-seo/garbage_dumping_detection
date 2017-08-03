@@ -1,15 +1,13 @@
 import json
-from sklearn.svm import SVC
 from sklearn.model_selection import StratifiedKFold
 import cv2
-from scipy.optimize import linear_sum_assignment
 
 
 files = [1, 12, 30, 31, 43, 67, 69]
 frame = [404, 732, 1619, 1037, 1906, 874, 486]
 file_info = []
 true_positive_dict = {}
-true_posi_frame = {}
+true_positive_frame = {}
 for i in files:
     true_positive_dict[i] = []
 
@@ -22,20 +20,19 @@ def read_pose_(filename):
     return js
 
 
-def import_data_(startnum, endnum, index):
-    pose_keypoints = []
+def import_data_(start_num, end_num, index):
+    pose_key_points = []
     y = []
-    filenumber = startnum
-    fileindex = files[index]
+    file_number = start_num
+    file_index = files[index]
 
-    while filenumber < endnum:
-        POSE_FILE = "/home/jmseo/Desktop/ETRI/%03d/%03d_%012d_keypoints.json" % (fileindex, fileindex, filenumber)
-        POSE = {}
-        POSE = read_pose_(POSE_FILE)
-        people = POSE['people']
+    while file_number < end_num:
+        pose_file = "/home/jmseo/Desktop/ETRI/%03d/%03d_%012d_keypoints.json" % (file_index, file_index, file_number)
+        dict_pose = read_pose_(pose_file)  #dict_pose = {}
+        people = dict_pose['people']
 
         if not people:
-            filenumber += 1
+            file_number += 1
             continue
 
         for pose_list in enumerate(people):
@@ -49,49 +46,49 @@ def import_data_(startnum, endnum, index):
                     y.append(pose_list[1]['pose_keypoints'].pop())
 
                 else:
-                    print(POSE_FILE)
+                    print(pose_file)
 
-                pose_keypoints.append(pose_list[1]['pose_keypoints'])
-                file_info.append([fileindex, filenumber, pose_list[0]])
+                pose_key_points.append(pose_list[1]['pose_keypoints'])
+                file_info.append([file_index, file_number, pose_list[0]])
 
-        filenumber += 1
-    return pose_keypoints, y
+        file_number += 1
+    return pose_key_points, y
 
 
-def normalize_pose_(posedata):
-    norm_posedata = [pose for pose in posedata]
+def normalize_pose_(pose_data):
+    norm_pose_data = [pose for pose in pose_data]
 
-    for pose in norm_posedata:
+    for pose in norm_pose_data:
         neck_x = pose[3]
         neck_y = pose[4]
-        baseindex = 0
+        base_index = 0
 
-        while baseindex < 18:
-            pose[baseindex*3] -= neck_x
-            pose[baseindex*3+1] -= neck_y
-            baseindex += 1
+        while base_index < 18:
+            pose[base_index*3] -= neck_x
+            pose[base_index*3+1] -= neck_y
+            base_index += 1
 
-    return norm_posedata
+    return norm_pose_data
 
 
-def scaling_data_(posedata):
-    scaling_posedata = [pose for pose in posedata]
+def scaling_data_(pose_data):
+    scaling_pose_data = [pose for pose in pose_data]
 
-    for pose in scaling_posedata:
-        Lknee, LAnkle = [pose[36], pose[37]], [pose[39], pose[40]]
-        Rknee, RAnkle = [pose[27], pose[28]], [pose[30], pose[31]]
-        baseindex = 0
+    for pose in scaling_pose_data:
+        light_knee, light_ankle = [pose[36], pose[37]], [pose[39], pose[40]]
+        right_knee, right_ankle = [pose[27], pose[28]], [pose[30], pose[31]]
+        base_index = 0
 
-        Rdist = ((Rknee[0] - RAnkle[0]) ** 2 + (Rknee[1] - RAnkle[1]) ** 2) ** 0.5
-        Ldist = ((Lknee[0] - LAnkle[0]) ** 2 + (Lknee[1] - LAnkle[1]) ** 2) ** 0.5
-        dist = Rdist if Rdist > Ldist else Ldist
+        right_dist = ((right_knee[0] - right_ankle[0]) ** 2 + (right_knee[1] - right_ankle[1]) ** 2) ** 0.5
+        light_dist = ((light_knee[0] - light_ankle[0]) ** 2 + (light_knee[1] - light_ankle[1]) ** 2) ** 0.5
+        dist = right_dist if right_dist > light_dist else light_dist
 
-        while baseindex < 18:
-            pose[baseindex*3] /= dist
-            pose[baseindex*3+1] /= dist
-            baseindex += 1
+        while base_index < 18:
+            pose[base_index*3] /= dist
+            pose[base_index*3+1] /= dist
+            base_index += 1
 
-    return scaling_posedata
+    return scaling_pose_data
 
 
 def check_true_positive_in_frame_(file_num, posi_list):
@@ -119,15 +116,14 @@ def check_true_positive_in_frame_(file_num, posi_list):
             cv2.circle(frame, (int(width)-200, int(height)-100), 40, (255, 255, 255), 40)
 
             # add new code
-            POSE_FILE = "/home/jmseo/Desktop/ETRI/%03d/%03d_%012d_keypoints.json" % (file_num, file_num, posi_list[0])
-            POSE = {}
-            POSE = read_pose_(POSE_FILE)
-            people = POSE['people']
+            pose_file = "/home/jmseo/Desktop/ETRI/%03d/%03d_%012d_keypoints.json" % (file_num, file_num, posi_list[0])
+            dict_pose = read_pose_(pose_file)  #dict_pose={}
+            people = dict_pose['people']
 
-            for i in true_posi_frame[posi_list[0]]:
+            for i in true_positive_frame[posi_list[0]]:
                 temp = people[i]['pose_keypoints']
-                temp_x = [temp[i*3] for i in range(0, 18)]
-                temp_y = [temp[i*3 + 1] for i in range(0, 18)]
+                temp_x = [temp[x*3] for x in range(0, 18)]
+                temp_y = [temp[y*3 + 1] for y in range(0, 18)]
                 cv2.rectangle(frame,
                               (int(min(filter(lambda x: x > 0, temp_x))), int(min(filter(lambda x: x > 0, temp_y)))),
                               (int(max(temp_x)), int(max(temp_y))),
@@ -149,89 +145,112 @@ def check_true_positive_in_frame_(file_num, posi_list):
     cv2.destroyAllWindows()
 
 
+def check_classified_result_(predict_class, test_class, test_index, true_class_num):
+    false_positive = 0
+    false_negative = 0
+    true_positive = 0
+    true_negative = 0
+    for index in range(0, len(predict_class)):
+
+        if predict_class[index] == 1:
+            if test_class[index] == 1:
+                true_positive += 1
+                true_positive_dict[file_info[test_index[index]][0]].append(file_info[test_index[index]][1])
+
+                if not file_info[test_index[index]][1] in true_positive_frame:
+                    true_positive_frame[file_info[test_index[index]][1]] = []
+
+                true_positive_frame[file_info[test_index[index]][1]].append(file_info[test_index[index]][2])
+
+            elif test_class[index] == 0:
+                false_positive += 1
+
+        elif predict_class[index] == 0:
+            if test_class[index] == 0:
+                true_negative += 1
+
+            elif test_class[index] == 1:
+                false_negative += 1
+
+    print('True Class: %d' % true_class_num,
+          'True Positive: %d' % true_positive,
+          'True Negative: %d' % true_negative,
+          'False Positive: %d' % false_positive,
+          'Missing: %d' % false_negative,
+          'All: %d' % len(test_class))
+
+    print('Precision: %d' % (true_positive/(true_positive+false_positive)),
+          'Recall: %d' % (true_positive/(true_positive+false_negative)),
+          'Accuracy: %d' % (true_class_num/len(test_class)))
+
+
+def k_means_classifier_(train_data, train_class, test_data):
+    from sklearn.cluster import KMeans
+    #KMeans(n_clusters=3, random_state=True).fit(train_data)
+
+    return KMeans(n_clusters=3, random_state=True).fit(train_data).predict(test_data)
+
+def support_vector_machine_classifier_(train_data, train_class, test_data):
+    from sklearn.svm import SVC
+    # Support vector machine
+    #svc = SVC(kernel='linear', C=0.1).fit(train_data, train_class)
+    #y_predict = svc.predict(test_data)
+
+    return SVC(kernel='linear', C=0.1).fit(train_data, train_class).predict(test_data)
+
+
 def main():
-    keypoint = []
+    print('start')
+    key_point = []
     pose_class = []
 
     for i in range(0, len(files)):
-        tmp_keypoint, tmp_pose_class = import_data_(0, frame[i], i)
+        tmp_key_point, tmp_pose_class = import_data_(0, frame[i], i)
         if i == 0:
-            keypoint = tmp_keypoint
+            key_point = tmp_key_point
             pose_class = tmp_pose_class
 
         else:
-            keypoint.extend(tmp_keypoint)
+            key_point.extend(tmp_key_point)
             pose_class.extend(tmp_pose_class)
 
-    norm_keypoint = normalize_pose_(keypoint)
-    scaling_keypoint = scaling_data_(norm_keypoint)
+    norm_key_point = normalize_pose_(key_point)
+    scaling_key_point = scaling_data_(norm_key_point)
 
-    coord_keypoint = []
-    for point in scaling_keypoint:
-        coord_keypoint.append([])
-        for i in range(0, 18):
-            coord_keypoint[len(coord_keypoint) - 1].append(point[i * 3])
-            coord_keypoint[len(coord_keypoint) - 1].append(point[i * 3 + 1])
+    coord_key_point = []
+    for point in scaling_key_point:
+        coord_key_point.append([])
+        for index in range(0, 18):
+            coord_key_point[len(coord_key_point) - 1].append(point[index * 3])
+            coord_key_point[len(coord_key_point) - 1].append(point[index * 3 + 1])
 
+    print("k-fold")
     # 10fold & shuffle = True
     skf = StratifiedKFold(n_splits=10, shuffle=True)
 
     # split train test
-    for train_index, test_index in skf.split(coord_keypoint, pose_class):
+    for train_index, test_index in skf.split(coord_key_point, pose_class):
         train_data = []
         test_data = []
         train_class = []
         test_class = []
-        class_num = 0
+        true_class_num = 0
         for index in train_index:
-            train_data.append(coord_keypoint[index])
+            train_data.append(coord_key_point[index])
             train_class.append(pose_class[index])
         for index in test_index:
-            test_data.append(coord_keypoint[index])
+            test_data.append(coord_key_point[index])
             test_class.append(pose_class[index])
             if pose_class[index] == 1:
-                class_num += 1
+                true_class_num += 1
 
-        # Support vector machine
-        svc = SVC(kernel='linear', C=0.1).fit(train_data, train_class)
-        y_pred = svc.predict(test_data)
+        predict_class = support_vector_machine_classifier_(train_data, train_class, test_data)
+        check_classified_result_(predict_class, test_class, test_index, true_class_num)
 
-        false_posi = 0
-        false_nega = 0
-        true_posi = 0
-        true_nega = 0
-        for i in range(0, len(y_pred)):
-
-            if y_pred[i] == 1:
-                if test_class[i] == 1:
-                    true_posi += 1
-                    true_positive_dict[file_info[test_index[i]][0]].append(file_info[test_index[i]][1])
-
-                    if not file_info[test_index[i]][1] in true_posi_frame:
-                        true_posi_frame[file_info[test_index[i]][1]] = []
-
-                    true_posi_frame[file_info[test_index[i]][1]].append(file_info[test_index[i]][2])
-
-                elif test_class[i] == 0:
-                    false_posi += 1
-
-            elif y_pred[i] == 0:
-                if test_class[i] == 0:
-                    true_nega += 1
-
-                elif test_class[i] == 1:
-                    false_nega += 1
-
-        print('True Class: %d' % class_num,
-              'True Positive: %d' % true_posi,
-              'True Negative: %d' % true_nega,
-              'False Positive: %d' % false_posi,
-              'Missing: %d' % false_nega,
-              'All: %d' % len(test_class))
-
-    for i in true_positive_dict.keys():
-        true_positive_dict[i].sort()
-        check_true_positive_in_frame_(i, true_positive_dict[i])
+    print('make moving picture')
+    for key in true_positive_dict.keys():
+        true_positive_dict[key].sort()
+        check_true_positive_in_frame_(key, true_positive_dict[key])
 
 
 if __name__ == '__main__':

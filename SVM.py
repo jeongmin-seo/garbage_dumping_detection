@@ -1,11 +1,18 @@
 import json
 from sklearn.model_selection import StratifiedKFold
 import cv2
+import os
+import glob
 
 
-files = [1, 12, 30, 31, 43, 67, 69]
-frame = [404, 732, 1619, 1037, 1906, 874, 486]
+dumping_pose_file_num = range(73,104)
+
+files = [11, 12, 15, 17, 18, 28, 31, 41, 42, 58, 100, 113, 115, 117,
+         120, 127, 133, 136, 140, 144, 147, 153, 160, 161, 164, 165] #[1, 12, 30, 31, 43, 67, 69]
+frame = [1030, 732, 319, 278, 224, 755, 1037, 871, 1442, 1761, 288, 170, 269, 1049,
+         99, 499, 364, 202, 329, 359, 254, 419, 314, 135, 369, 269]#[404, 732, 1619, 1037, 1906, 874, 486]
 file_info = []
+kmeans_dict={}
 true_positive_dict = {}
 true_positive_frame = {}
 for i in files:
@@ -21,6 +28,7 @@ def read_pose_(filename):
 
 
 def import_data_(start_num, end_num, index):
+    #TODO:현재 디렉토리에 떤어디렉토리가 있는지 파악해서 파일 number를 확인하고 그 안에 파일리스트를 확인해서 총 프레임수 를받아오기
     pose_key_points = []
     y = []
     file_number = start_num
@@ -52,6 +60,7 @@ def import_data_(start_num, end_num, index):
                 file_info.append([file_index, file_number, pose_list[0]])
 
         file_number += 1
+
     return pose_key_points, y
 
 
@@ -179,12 +188,26 @@ def check_classified_result_(predict_class, test_class, test_index, true_class_n
           'Missing: %d' % false_negative,
           'All: %d' % len(test_class))
 
-    print('Precision: %d' % (true_positive/(true_positive+false_positive)),
-          'Recall: %d' % (true_positive/(true_positive+false_negative)),
-          'Accuracy: %d' % (true_class_num/len(test_class)))
+    print('Precision: %f' % (true_positive/(true_positive+false_positive)),
+          'Recall: %f' % (true_positive/(true_positive+false_negative)),
+          'Accuracy: %f' % (true_class_num/len(test_class)))
 
 
-def k_means_classifier_(train_data, train_class, test_data):
+def k_means_check_result_(predict_class, test_index, k):
+
+    for i in range(0,k):
+        kmeans_dict[i].append([])
+
+    for index in range(0, len(predict_class)):
+
+        if predict_class[index] == 0:
+            kmeans_dict[file_info[test_index[index]][0]].append(file_info[test_index[index]][1])
+
+        elif predict_class[index] == 1:
+            kmeans_dict[file_info[test_index[index]][0]].append(file_info[test_index[index]][1])#수정하
+
+
+def kmeans_classifier_(train_data, train_class, test_data):
     from sklearn.cluster import KMeans
     #KMeans(n_clusters=3, random_state=True).fit(train_data)
 
@@ -246,6 +269,7 @@ def main():
 
         predict_class = support_vector_machine_classifier_(train_data, train_class, test_data)
         check_classified_result_(predict_class, test_class, test_index, true_class_num)
+
 
     print('make moving picture')
     for key in true_positive_dict.keys():

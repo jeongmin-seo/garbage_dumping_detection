@@ -5,18 +5,24 @@ import os
 import glob
 
 
-dumping_pose_file_num = range(73,104)
+#dumping_pose_file_num = range(73,104)
 
-files = [11, 12, 15, 17, 18, 28, 31, 41, 42, 58, 100, 113, 115, 117,
-         120, 127, 133, 136, 140, 144, 147, 153, 160, 161, 164, 165] #[1, 12, 30, 31, 43, 67, 69]
-frame = [1030, 732, 319, 278, 224, 755, 1037, 871, 1442, 1761, 288, 170, 269, 1049,
-         99, 499, 364, 202, 329, 359, 254, 419, 314, 135, 369, 269]#[404, 732, 1619, 1037, 1906, 874, 486]
+#files = [1, 12, 30, 31, 43, 67, 69]
+#frame = [404, 732, 1619, 1037, 1906, 874, 486]
+
+files = [5,14,19,30,33,38,44]
+frame = [703,453,2173,1619,1075,423,1083]
+
+#files = [11, 12, 15, 17, 18, 28, 31,41, 42, 58, 100, 113, 115, 117,
+#         120, 127, 133, 136, 140, 144, 147, 153, 160, 161, 164, 165] #[1, 12, 30, 31, 43, 67, 69]
+#frame = [1030, 732, 319, 278, 224, 755, 1037, 871, 1442, 1761, 288, 170, 269, 1049,
+#         99, 499, 364, 202, 329, 359, 254, 419, 314, 135, 369, 269] #[404, 732, 1619, 1037, 1906, 874, 486]
 file_info = []
 kmeans_dict={}
 true_positive_dict = {}
 true_positive_frame = {}
 for i in files:
-    true_positive_dict[i] = []
+    true_positive_dict[i] = {}
 
 
 def read_pose_(filename):
@@ -28,13 +34,13 @@ def read_pose_(filename):
 
 
 def import_data_(start_num, end_num, index):
-    #TODO:현재 디렉토리에 떤어디렉토리가 있는지 파악해서 파일 number를 확인하고 그 안에 파일리스트를 확인해서 총 프레임수 를받아오기
     pose_key_points = []
     y = []
     file_number = start_num
     file_index = files[index]
 
     while file_number < end_num:
+        #pose_file = "/home/jmseo/PycharmProjects/ETRIsvm/result/%03d/%03d_%012d_keypoints.json" % (file_index, file_index, file_number)
         pose_file = "/home/jmseo/Desktop/ETRI/%03d/%03d_%012d_keypoints.json" % (file_index, file_index, file_number)
         dict_pose = read_pose_(pose_file)  #dict_pose = {}
         people = dict_pose['people']
@@ -44,8 +50,12 @@ def import_data_(start_num, end_num, index):
             continue
 
         for pose_list in enumerate(people):
-            if pose_list[1]['pose_keypoints'][36] != 0 and pose_list[1]['pose_keypoints'][37] != 0 and \
-                            pose_list[1]['pose_keypoints'][39] != 0 and pose_list[1]['pose_keypoints'][40] != 0:
+#            if pose_list[1]['pose_keypoints'][36] != 0 and pose_list[1]['pose_keypoints'][37] != 0 and \
+#                            pose_list[1]['pose_keypoints'][39] != 0 and pose_list[1]['pose_keypoints'][40] != 0:
+
+            if pose_list[1]['pose_keypoints'][29] != 0 and pose_list[1]['pose_keypoints'][32] != 0 and \
+                    pose_list[1]['pose_keypoints'][38] != 0 and pose_list[1]['pose_keypoints'][41] != 0 and \
+                            pose_list[1]['pose_keypoints'][5] != 0:
 
                 if len(pose_list[1]['pose_keypoints']) == 54:
                     y.append(0)
@@ -100,8 +110,8 @@ def scaling_data_(pose_data):
     return scaling_pose_data
 
 
-def check_true_positive_in_frame_(file_num, posi_list):
-    file_path = "/home/jmseo/openpose/examples/media/ETRI/%03dresult.avi" % file_num
+def check_true_positive_in_frame_(file_num, posi_dict):
+    file_path = "/home/jmseo/openpose/examples/media/ETRI1/videoresult/%03dresult.avi" % file_num
 
     cap = cv2.VideoCapture(file_path)
     fps, width, height = cap.get(cv2.CAP_PROP_FPS), cap.get(cv2.CAP_PROP_FRAME_WIDTH), cap.get(cv2.CAP_PROP_FRAME_HEIGHT)
@@ -121,15 +131,15 @@ def check_true_positive_in_frame_(file_num, posi_list):
 
         cv2.putText(frame, str(frame_num), (100, 100), font, 4, (255, 255, 255), 2, cv2.LINE_AA)
 
-        if posi_list and frame_num == posi_list[0]:
+        if posi_dict and frame_num in posi_dict:
             cv2.circle(frame, (int(width)-200, int(height)-100), 40, (255, 255, 255), 40)
 
             # add new code
-            pose_file = "/home/jmseo/Desktop/ETRI/%03d/%03d_%012d_keypoints.json" % (file_num, file_num, posi_list[0])
+            pose_file = "/home/jmseo/Desktop/ETRI/%03d/%03d_%012d_keypoints.json" % (file_num, file_num, frame_num)
             dict_pose = read_pose_(pose_file)  #dict_pose={}
             people = dict_pose['people']
 
-            for i in true_positive_frame[posi_list[0]]:
+            for i in posi_dict[frame_num]:
                 temp = people[i]['pose_keypoints']
                 temp_x = [temp[x*3] for x in range(0, 18)]
                 temp_y = [temp[y*3 + 1] for y in range(0, 18)]
@@ -138,7 +148,25 @@ def check_true_positive_in_frame_(file_num, posi_list):
                               (int(max(temp_x)), int(max(temp_y))),
                               (0, 0, 255), thickness=3)
 
-            posi_list.pop(0)
+            """
+            for i in true_positive_frame[posi_list[0]]:
+                try:
+                    temp = people[i]['pose_keypoints']
+                    temp_x = [temp[x*3] for x in range(0, 18)]
+                    temp_y = [temp[y*3 + 1] for y in range(0, 18)]
+                    cv2.rectangle(frame,
+                                  (int(min(filter(lambda x: x > 0, temp_x))), int(min(filter(lambda x: x > 0, temp_y)))),
+                                  (int(max(temp_x)), int(max(temp_y))),
+                                  (0, 0, 255), thickness=3)
+
+                except:
+                    print("frame:", frame_num)
+                    print(i, len(people))
+                    print(true_positive_frame.keys())
+                    print(true_positive_dict.keys())
+            """
+
+            #posi_list.pop(0)
 
         # frame_name = "%03d_check_positive_%06d.jpg" % (file_num, frame_num)
         # cv2.imwrite(frame_name, frame)
@@ -164,12 +192,16 @@ def check_classified_result_(predict_class, test_class, test_index, true_class_n
         if predict_class[index] == 1:
             if test_class[index] == 1:
                 true_positive += 1
-                true_positive_dict[file_info[test_index[index]][0]].append(file_info[test_index[index]][1])
+#                true_positive_dict[file_info[test_index[index]][0]].append(file_info[test_index[index]][1])
 
-                if not file_info[test_index[index]][1] in true_positive_frame:
-                    true_positive_frame[file_info[test_index[index]][1]] = []
+#               if not file_info[test_index[index]][1] in true_positive_frame:
+#                    true_positive_frame[file_info[test_index[index]][1]] = []
 
-                true_positive_frame[file_info[test_index[index]][1]].append(file_info[test_index[index]][2])
+#                true_positive_frame[file_info[test_index[index]][1]].append(file_info[test_index[index]][2])
+
+                if not file_info[test_index[index]][1] in true_positive_dict[file_info[test_index[index]][0]]:
+                    true_positive_dict[file_info[test_index[index]][0]][file_info[test_index[index]][1]]=[]
+                true_positive_dict[file_info[test_index[index]][0]][file_info[test_index[index]][1]].append(file_info[test_index[index]][2])
 
             elif test_class[index] == 0:
                 false_positive += 1
@@ -188,9 +220,9 @@ def check_classified_result_(predict_class, test_class, test_index, true_class_n
           'Missing: %d' % false_negative,
           'All: %d' % len(test_class))
 
-    print('Precision: %f' % (true_positive/(true_positive+false_positive)),
-          'Recall: %f' % (true_positive/(true_positive+false_negative)),
-          'Accuracy: %f' % (true_class_num/len(test_class)))
+    print('Precision: %f' % (float(true_positive)/(true_positive+false_positive)),
+          'Recall: %f' % (float(true_positive)/(true_positive+false_negative)),
+          'Accuracy: %f' % (float(true_positive + true_negative)/len(test_class)))
 
 
 def k_means_check_result_(predict_class, test_index, k):
@@ -204,7 +236,7 @@ def k_means_check_result_(predict_class, test_index, k):
             kmeans_dict[file_info[test_index[index]][0]].append(file_info[test_index[index]][1])
 
         elif predict_class[index] == 1:
-            kmeans_dict[file_info[test_index[index]][0]].append(file_info[test_index[index]][1])#수정하
+            kmeans_dict[file_info[test_index[index]][0]].append(file_info[test_index[index]][1])
 
 
 def kmeans_classifier_(train_data, train_class, test_data):
@@ -247,6 +279,12 @@ def main():
             coord_key_point[len(coord_key_point) - 1].append(point[index * 3])
             coord_key_point[len(coord_key_point) - 1].append(point[index * 3 + 1])
 
+    print(len(scaling_key_point))
+    true = 0
+    for pose in pose_class:
+        if pose == 1:
+            true +=1
+    print(true)
     print("k-fold")
     # 10fold & shuffle = True
     skf = StratifiedKFold(n_splits=10, shuffle=True)
@@ -273,7 +311,6 @@ def main():
 
     print('make moving picture')
     for key in true_positive_dict.keys():
-        true_positive_dict[key].sort()
         check_true_positive_in_frame_(key, true_positive_dict[key])
 
 

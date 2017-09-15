@@ -6,42 +6,10 @@ import glob
 from mpl_toolkits.mplot3d import Axes3D
 import matplotlib.pyplot as plt
 import numpy as np
+import random
+import copy
 
 
-#########################################################################
-#files = [1, 12, 30, 31, 43, 67, 69]
-#frame = [404, 732, 1619, 1037, 1906, 874, 486]
-#Precision:0.8436331  Recall:0.4432278  Accuracy:0.9328258
-#########################################################################
-
-#########################################################################
-#files = [5,14,19,30,33,38,44,189]
-#frame = [703,453,2173,1619,1075,423,1083,287]
-#Precision:  Recall:  Accuracy:
-#########################################################################
-
-#########################################################################
-#files = [5,189]
-#frame = [703,287]
-#########################################################################
-
-##########################################################################
-#files = [11, 12, 15, 17, 18, 28, 31,41, 42, 58, 100, 113, 115, 117,
-#         120,124, 125, 127, 133, 136, 140, 144, 147, 153, 160, 161, 164, 165,
-#        172, 186, 189, 191, 196, 199, 202, 204, 206,213] #[1, 12, 30, 31, 43, 67, 69]
-#frame = [1030, 732, 319, 278, 224, 755, 1037, 871, 1442, 1761, 288, 170, 269, 1049,
-#        99, 214, 408, 499, 364, 202, 329, 359, 254, 419, 314, 135, 369, 269,
-#         839,628,287,522,715, 1194, 176,744, 1028,252] #[404, 732, 1619, 1037, 1906, 874, 486]
-#Precision:0.8785148  Recall:0.3316766  Accuracy:0.8999
-#Precision:0.870783  Recall:0.3367419  Accuracy:0.8981
-#Precision:0.898605  Recall:0.3662108  Accuracy:0.909791
-###########################################################################
-
-###########################################################################
-#teahun's file
-#files = [15,17,18,28,31,41,42]
-#frame = [319, 278, 224, 755, 1037, 871, 1442]
-###########################################################################
 
 ###########################################################################
 #class 2
@@ -55,13 +23,12 @@ frame = [593, 329, 509, 639, 824, 134, 457, 486, 179, 319, 599]
 #frame = [219, 409, 905, 1596, 556, 367, 279, 271, 340, 344]
 ###########################################################################
 
+
 true_class_label_number = 2 #change true class label number
 file_info = []
 kmeans_dict={}
 true_positive_dict = {}
-#true_positive_frame = {}
 true_sample_dict={}
-#true_sample_frame={}
 
 for i in files:
     true_positive_dict[i] = {}
@@ -90,9 +57,6 @@ def import_data_(start_num, end_num, index):
     file_index = files[index]
 
     while file_number < end_num:
-        #pose_file = "/home/jmseo/PycharmProjects/ETRIsvm/macrolabeling/macrojson/%03d/%03d_%012d_keypoints.json" % (file_index, file_index, file_number)
-        #pose_file = "/home/jmseo/Desktop/ETRI/%03d/%03d_%012d_keypoints.json" % (file_index, file_index, file_number)
-        #pose_file = "/home/jmseo/PycharmProjects/ETRIsvm/teahun/%03d/%03d_%012d_keypoints.json" % (file_index, file_index, file_number)
         #class2
         pose_file = "/home/jmseo/PycharmProjects/ETRIsvm/class2json/%03d/%03d_%012d_keypoints.json" % (file_index, file_index, file_number)
         #class3
@@ -106,9 +70,6 @@ def import_data_(start_num, end_num, index):
             continue
 
         for pose_list in enumerate(people):
-#            if pose_list[1]['pose_keypoints'][36] != 0 and pose_list[1]['pose_keypoints'][37] != 0 and \
-#                            pose_list[1]['pose_keypoints'][39] != 0 and pose_list[1]['pose_keypoints'][40] != 0:
-
             if pose_list[1]['pose_keypoints'][29] != 0 and pose_list[1]['pose_keypoints'][32] != 0 and \
                     pose_list[1]['pose_keypoints'][38] != 0 and pose_list[1]['pose_keypoints'][41] != 0 and \
                             pose_list[1]['pose_keypoints'][5] != 0:
@@ -199,13 +160,7 @@ def check_true_positive_in_frame_(file_num, posi_dict,true_dict):
         cv2.putText(frame, str(frame_num), (100, 100), font, 4, (255, 255, 255), 2, cv2.LINE_AA)
 
         # add new code
-        pose_file = "/home/jmseo/PycharmProjects/ETRIsvm/macrolabeling/macrojson/%03d/%03d_%012d_keypoints.json" \
-                    % (file_num, file_num, frame_num)
-
-        # pose_file = "/home/jmseo/PycharmProjects/ETRIsvm/result/%03d/%03d_%012d_keypoints.json" % (file_num, file_num, frame_num)
-        #pose_file = "/home/jmseo/PycharmProjects/ETRIsvm/teahun/%03d/%03d_%012d_keypoints.json" % (
-        #file_num, file_num, frame_num)
-        # pose_file = "/home/jmseo/PycharmProjects/ETRIsvm/throw/%03d/%03d_%012d_keypoints.json" % (file_num, file_num, frame_num)
+        pose_file = "/home/jmseo/PycharmProjects/ETRIsvm/class2json/%03d/%03d_%012d_keypoints.json" % (file_num, file_num, frame_num)
         dict_pose = read_pose_(pose_file)  # dict_pose={}
         people = dict_pose['people']
 
@@ -242,25 +197,6 @@ def check_true_positive_in_frame_(file_num, posi_dict,true_dict):
                               (int(max(temp_x)+5), int(max(temp_y)+5)),
                               (0, 0, 255), thickness=3)
 
-            """
-            for i in true_positive_frame[posi_list[0]]:
-                try:
-                    temp = people[i]['pose_keypoints']
-                    temp_x = [temp[x*3] for x in range(0, 18)]
-                    temp_y = [temp[y*3 + 1] for y in range(0, 18)]
-                    cv2.rectangle(frame,
-                                  (int(min(filter(lambda x: x > 0, temp_x))), int(min(filter(lambda x: x > 0, temp_y)))),
-                                  (int(max(temp_x)), int(max(temp_y))),
-                                  (0, 0, 255), thickness=3)
-
-                except:
-                    print("frame:", frame_num)
-                    print(i, len(people))
-                    print(true_positive_frame.keys())
-                    print(true_positive_dict.keys())
-            """
-
-            #posi_list.pop(0)
 
         # frame_name = "%03d_check_positive_%06d.jpg" % (file_num, frame_num)
         # cv2.imwrite(frame_name, frame)
@@ -287,34 +223,11 @@ def check_classified_result_(predict_class, test_class, test_index, true_class_n
 
         #change true class label
         if predict_class[index] == true_class_label_number:
-            """
-            if test_class[index] == true_class_label_number:
-                true_positive += 1
-#                true_positive_dict[file_info[test_index[index]][0]].append(file_info[test_index[index]][1])
-
-#               if not file_info[test_index[index]][1] in true_positive_frame:
-#                    true_positive_frame[file_info[test_index[index]][1]] = []
-
-#                true_positive_frame[file_info[test_index[index]][1]].append(file_info[test_index[index]][2])
-
-                if not file_info[test_index[index]][1] in true_positive_dict[file_info[test_index[index]][0]]:
-                    true_positive_dict[file_info[test_index[index]][0]][file_info[test_index[index]][1]]=[]
-                true_positive_dict[file_info[test_index[index]][0]][file_info[test_index[index]][1]].append(file_info[test_index[index]][2])
-
-            elif test_class[index] == 0:
-                false_positive += 1
-            """
             if test_class[index] == 0:
                 false_positive += 1
 
             else:
                 true_positive += 1
-                """
-                if not file_info[test_index[index]][1] in true_positive_dict[file_info[test_index[index]][0]]:
-                    true_positive_dict[file_info[test_index[index]][0]][file_info[test_index[index]][1]] = []
-                true_positive_dict[file_info[test_index[index]][0]][file_info[test_index[index]][1]].append(
-                    file_info[test_index[index]][2])
-                """
 
         elif predict_class[index] == 0:
             if test_class[index] == 0:
@@ -329,35 +242,11 @@ def check_classified_result_(predict_class, test_class, test_index, true_class_n
           'False Positive: %d' % false_positive,
           'Missing: %d' % false_negative,
           'All: %d' % len(test_class))
-
+"""
     print('Precision: %f' % (float(true_positive)/(true_positive+false_positive)),
           'Recall: %f' % (float(true_positive)/(true_positive+false_negative)),
           'Accuracy: %f' % (float(true_positive + true_negative)/len(test_class)))
-
-
-def k_means_check_result_(predict_class, test_index, k):
-
-    for i in range(0,k):
-        kmeans_dict[i].append([])
-
-    for index in range(0, len(predict_class)):
-
-        if predict_class[index] == 0:
-            kmeans_dict[file_info[test_index[index]][0]].append(file_info[test_index[index]][1])
-
-        elif predict_class[index] == 1:
-            kmeans_dict[file_info[test_index[index]][0]].append(file_info[test_index[index]][1])
-
-
-
-########################################################################
-#             predict class using k-means cluster algorithm            #
-########################################################################
-def kmeans_classifier_(train_data, train_class, test_data):
-    from sklearn.cluster import KMeans
-    #KMeans(n_clusters=3, random_state=True).fit(train_data)
-
-    return KMeans(n_clusters=3, random_state=True).fit(train_data).predict(test_data)
+"""
 
 
 ########################################################################
@@ -369,9 +258,7 @@ def support_vector_machine_classifier_(train_data, train_class, test_data):
     #svc = SVC(kernel='linear', C=0.1).fit(train_data, train_class)
     #y_predict = svc.predict(test_data)
 
-    # if you want weighted class svm, you could adjust class_weight parameter like "class_weight={0:0.08,3:0.92}"
-    return SVC(kernel='linear', C=0.1, class_weight="auto").fit(train_data, train_class).predict(test_data)
-
+    return SVC(kernel='linear', C=0.1).fit(train_data, train_class).predict(test_data)
 
 ########################################################################
 #            draw visualize graph /  compare GT with result            #
@@ -403,14 +290,6 @@ def visualize_classification_result_(frame_length, true_frame_list, file_number)
     plt.savefig('%d file' %file_number)
 
 
-########################################################################
-#                         Sampling the data                            #
-########################################################################
-def random_sampling_negative_(negative_sample):
-    import random
-
-    return random.shuffle(negative_sample)
-
 
 def main():
     print('start')
@@ -425,99 +304,83 @@ def main():
         if i == 0:
             key_point = tmp_key_point
             pose_class = tmp_pose_class
+            if not true_class_label_number == 1:
+                positive = tmp_positive
+                negative = tmp_negative
 
         else:
             key_point.extend(tmp_key_point)
             pose_class.extend(tmp_pose_class)
+            if not true_class_label_number == 1:
+                positive.extend(tmp_positive)
+                negative.extend(tmp_negative)
 
 ########################################################################
 #                      normalize & scaling data                        #
 ########################################################################
 
-    norm_key_point = normalize_pose_(key_point)
-    scaling_key_point = scaling_data_(norm_key_point)
+    if true_class_label_number == 1:
+        norm_key_point = normalize_pose_(key_point)
+        scaling_key_point = scaling_data_(norm_key_point)
+
+    else:
+        norm_positive_keypoint = normalize_pose_(positive)
+        norm_negative_keypoint = normalize_pose_(negative)
+        scaling_positive_keypoint = scaling_data_(norm_positive_keypoint)
+        scaling_negative_keypoint = scaling_data_(norm_negative_keypoint)
+        positive_class = [true_class_label_number] * len(scaling_positive_keypoint)
+        negative_class = [0] * len(scaling_negative_keypoint)
+
 
 ########################################################################
 #               extract body coordinate except confidence              #
 ########################################################################
 
-    coord_key_point = []
-    for point in scaling_key_point:
-        coord_key_point.append([])
-        for index in range(0, 18):
-            coord_key_point[len(coord_key_point) - 1].append(point[index * 3])
-            coord_key_point[len(coord_key_point) - 1].append(point[index * 3 + 1])
+    coord_positive_keypoint = []
+    for point in scaling_positive_keypoint:
+        coord_positive_keypoint.append([])
+        for index in range(0,18):
+            coord_positive_keypoint[len(coord_positive_keypoint) - 1].append(point[index * 3])
+            coord_positive_keypoint[len(coord_positive_keypoint) - 1].append(point[index * 3 + 1])
 
-    print(len(scaling_key_point))
-    true = 0
-    for pose in pose_class:
-        if pose == true_class_label_number:
-            true += 1
-    print(true)
-    print("k-fold")
+    coord_negative_keypoint = []
+    for point in scaling_negative_keypoint:
+        coord_negative_keypoint.append([])
+        for index in range(0, 18):
+            coord_negative_keypoint[len(coord_negative_keypoint) - 1].append(point[index * 3])
+            coord_negative_keypoint[len(coord_negative_keypoint) - 1].append(point[index * 3 + 1])
+
+
+    test_data = copy.deepcopy(coord_negative_keypoint)
+    test_data.extend(coord_positive_keypoint)
+    test_class = copy.deepcopy(negative_class)
+    test_class.extend(positive_class)
 
 
 ########################################################################
 #       10-fold validation and split training & test data set          #
 ########################################################################
+    print("all nega",len(coord_negative_keypoint))
+    print("all posi",len(coord_positive_keypoint))
+    random.shuffle(coord_negative_keypoint)
+    for i in range(0,10):
+        num = int(len(coord_negative_keypoint)/10)
+        train_data = coord_negative_keypoint[num*i:num*(i+1)]
+        print(len(train_data))
+        train_class = [0]*len(train_data)
+        train_data.extend(coord_positive_keypoint)
+        print(len(coord_positive_keypoint))
+        train_class.extend(positive_class)
 
-    # 10fold & shuffle = True
-    skf = StratifiedKFold(n_splits=10, shuffle=True)
 
-    print("all",len(coord_key_point))
-    # split train test
-    for train_index, test_index in skf.split(coord_key_point, pose_class):
-        train_data = []
-        test_data = []
-        train_class = []
-        test_class = []
-        true_class_num = 0
-        print(len(train_index), len(test_index))
-        for index in train_index:
-            train_data.append(coord_key_point[index])
-            train_class.append(pose_class[index])
-        for index in test_index:
-            test_data.append(coord_key_point[index])
-            test_class.append(pose_class[index])
-            if pose_class[index] == true_class_label_number:
-                true_class_num += 1
-
-        nega = 0
-        posi = 0
-        for tr in  train_class:
-            if tr == 0:
-                nega += 1
-            else:
-                posi += 1
-
-        print("train",posi, nega)
-
-        nega = 0
-        posi = 0
-        for tr in test_class:
-            if tr == 0:
-                nega += 1
-            else:
-                posi += 1
-
-        print("test", posi, nega)
 
 ########################################################################
 #     predict test class & calculate Precision Recall and Accuracy     #
 ########################################################################
-        predict_class = support_vector_machine_classifier_(train_data, train_class, test_data)
-        check_classified_result_(predict_class, test_class, test_index, true_class_num)
 
-########################################################################
-#                      make result movie and graph                     #
-########################################################################
-"""
-    print('make moving picture')
-    for key in true_positive_dict.keys():
-        check_true_positive_in_frame_(key, true_positive_dict[key],true_sample_dict[key])
-        frame_length = frame[files.index(key)]
-        visualize_classification_result_(frame_length,true_positive_dict[key].keys(), key)
-"""
+        predict_class = support_vector_machine_classifier_(train_data, train_class, test_data)
+        check_classified_result_(predict_class, test_class, 0, len(positive_class))
+
 
 if __name__ == '__main__':
     main()

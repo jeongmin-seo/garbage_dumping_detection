@@ -1,11 +1,13 @@
 import json
 from sklearn.model_selection import StratifiedKFold
+from sklearn.svm import SVC
 import cv2
 import os
 import glob
 from mpl_toolkits.mplot3d import Axes3D
 import matplotlib.pyplot as plt
 import numpy as np
+import copy
 
 
 #########################################################################
@@ -307,7 +309,7 @@ def check_classified_result_(predict_class, test_class, test_index, true_class_n
             if test_class[index] == 0:
                 false_positive += 1
 
-            else:
+            elif test_class[index] == true_class_label_number:
                 true_positive += 1
                 """
                 if not file_info[test_index[index]][1] in true_positive_dict[file_info[test_index[index]][0]]:
@@ -320,7 +322,7 @@ def check_classified_result_(predict_class, test_class, test_index, true_class_n
             if test_class[index] == 0:
                 true_negative += 1
 
-            else: #elif test_class[index] == true_class_label_number:
+            elif test_class[index] == true_class_label_number:
                 false_negative += 1
 
     print('True Class: %d' % true_class_num,
@@ -370,8 +372,32 @@ def support_vector_machine_classifier_(train_data, train_class, test_data):
     #y_predict = svc.predict(test_data)
 
     # if you want weighted class svm, you could adjust class_weight parameter like "class_weight={0:0.08,3:0.92}"
-    return SVC(kernel='linear', C=0.1, class_weight="auto").fit(train_data, train_class).predict(test_data)
+    return SVC(kernel='linear', C=0.1).fit(train_data, train_class).predict(test_data)
 
+
+def boot_strapping_(train_data, train_class):
+    from sklearn.svm import SVC
+    """
+    iter_number = 0
+    while iter_number<5:
+
+        iter_number += 1
+    """
+
+    return SVC(kernel='linear', C=0.1).fit(train_data, train_class).decision_function(train_data)
+
+
+def threshold_false_sample(train_data, train_class, distance):
+
+    mean = sum(distance)/len(distance)
+    threshold_data = []
+    threshold_class = []
+    for i, dist in enumerate(distance):
+        if dist > mean:                   #TODO:  should change delete index
+            threshold_data.append(train_data[i])
+            threshold_class.append(train_class[i])
+
+    return threshold_data, threshold_class
 
 ########################################################################
 #            draw visualize graph /  compare GT with result            #
@@ -403,13 +429,6 @@ def visualize_classification_result_(frame_length, true_frame_list, file_number)
     plt.savefig('%d file' %file_number)
 
 
-########################################################################
-#                         Sampling the data                            #
-########################################################################
-def random_sampling_negative_(negative_sample):
-    import random
-
-    return random.shuffle(negative_sample)
 
 
 def main():
@@ -456,15 +475,24 @@ def main():
     print(true)
     print("k-fold")
 
+    training_data = copy.deepcopy(coord_key_point)
+    training_class = copy.deepcopy(pose_class)
+    for i in range(0, 4):
+        distance = boot_strapping_(training_data, training_class)
+        print(min(distance), max(distance))
+        (training_data, training_class) = threshold_false_sample(training_data, training_class, distance)
+        filt = list(filter(lambda x: x < 1, training_class))
+        print(len(training_data), len(filt),len(training_data)-len(filt))
+        print("-----------------------")
 
+    svm = SVC(kernel='linear', C=0.1).fit(training_data, training_class)
 ########################################################################
 #       10-fold validation and split training & test data set          #
 ########################################################################
-
+    """
     # 10fold & shuffle = True
-    skf = StratifiedKFold(n_splits=10, shuffle=True)
+    skf = StratifiedKFold(n_splits=1, shuffle=True)
 
-    print("all",len(coord_key_point))
     # split train test
     for train_index, test_index in skf.split(coord_key_point, pose_class):
         train_data = []
@@ -472,7 +500,6 @@ def main():
         train_class = []
         test_class = []
         true_class_num = 0
-        print(len(train_index), len(test_index))
         for index in train_index:
             train_data.append(coord_key_point[index])
             train_class.append(pose_class[index])
@@ -482,31 +509,23 @@ def main():
             if pose_class[index] == true_class_label_number:
                 true_class_num += 1
 
-        nega = 0
-        posi = 0
-        for tr in  train_class:
-            if tr == 0:
-                nega += 1
-            else:
-                posi += 1
-
-        print("train",posi, nega)
-
-        nega = 0
-        posi = 0
-        for tr in test_class:
-            if tr == 0:
-                nega += 1
-            else:
-                posi += 1
-
-        print("test", posi, nega)
 
 ########################################################################
 #     predict test class & calculate Precision Recall and Accuracy     #
 ########################################################################
-        predict_class = support_vector_machine_classifier_(train_data, train_class, test_data)
+
+        for i in range(0,6):
+            distance = boot_strapping_(train_data,train_class)
+            print(min(distance), max(distance))
+            (train_data, train_class) = threshold_false_sample(train_data, train_class, distance)
+        print("-----------------------")
+
+        #predict_class = support_vector_machine_classifier_(train_data, train_class, test_data)
+        predict_class = svm.predict(test_data)
         check_classified_result_(predict_class, test_class, test_index, true_class_num)
+        """
+    predict_class = svm.predict(coord_key_point)
+    check_classified_result_(predict_class, pose_class, 0, 123)
 
 ########################################################################
 #                      make result movie and graph                     #

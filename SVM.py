@@ -6,66 +6,69 @@ import glob
 from mpl_toolkits.mplot3d import Axes3D
 import matplotlib.pyplot as plt
 import numpy as np
+from xml.etree.ElementTree import parse
 
 
 #########################################################################
-#files = [1, 12, 30, 31, 43, 67, 69]
-#frame = [404, 732, 1619, 1037, 1906, 874, 486]
-#Precision:0.8436331  Recall:0.4432278  Accuracy:0.9328258
+# files = [1, 12, 30, 31, 43, 67, 69]
+# frame = [404, 732, 1619, 1037, 1906, 874, 486]
+# Precision:0.8436331  Recall:0.4432278  Accuracy:0.9328258
 #########################################################################
 
 #########################################################################
-#files = [5,14,19,30,33,38,44,189]
-#frame = [703,453,2173,1619,1075,423,1083,287]
-#Precision:  Recall:  Accuracy:
+# files = [5,14,19,30,33,38,44,189]
+# frame = [703,453,2173,1619,1075,423,1083,287]
+# Precision:  Recall:  Accuracy:
 #########################################################################
 
 #########################################################################
-#files = [5,189]
-#frame = [703,287]
+# files = [5,189]
+# frame = [703,287]
 #########################################################################
 
 ##########################################################################
-#files = [11, 12, 15, 17, 18, 28, 31,41, 42, 58, 100, 113, 115, 117,
+# files = [11, 12, 15, 17, 18, 28, 31,41, 42, 58, 100, 113, 115, 117,
 #         120,124, 125, 127, 133, 136, 140, 144, 147, 153, 160, 161, 164, 165,
 #        172, 186, 189, 191, 196, 199, 202, 204, 206,213] #[1, 12, 30, 31, 43, 67, 69]
-#frame = [1030, 732, 319, 278, 224, 755, 1037, 871, 1442, 1761, 288, 170, 269, 1049,
+# frame = [1030, 732, 319, 278, 224, 755, 1037, 871, 1442, 1761, 288, 170, 269, 1049,
 #        99, 214, 408, 499, 364, 202, 329, 359, 254, 419, 314, 135, 369, 269,
 #         839,628,287,522,715, 1194, 176,744, 1028,252] #[404, 732, 1619, 1037, 1906, 874, 486]
-#Precision:0.8785148  Recall:0.3316766  Accuracy:0.8999
-#Precision:0.870783  Recall:0.3367419  Accuracy:0.8981
-#Precision:0.898605  Recall:0.3662108  Accuracy:0.909791
+# Precision:0.8785148  Recall:0.3316766  Accuracy:0.8999
+# Precision:0.870783  Recall:0.3367419  Accuracy:0.8981
+# Precision:0.898605  Recall:0.3662108  Accuracy:0.909791
 ###########################################################################
 
 ###########################################################################
-#teahun's file
-#files = [15,17,18,28,31,41,42]
-#frame = [319, 278, 224, 755, 1037, 871, 1442]
+# teahun's file
+# files = [15,17,18,28,31,41,42]
+# frame = [319, 278, 224, 755, 1037, 871, 1442]
 ###########################################################################
 
 ###########################################################################
-#class 2
-files =[6, 13, 23, 46, 57, 61, 65, 69, 72, 95, 99]
+# class 2
+files = [6, 13, 23, 46, 57, 61, 65, 69, 72, 95, 99]
 frame = [593, 329, 509, 639, 824, 134, 457, 486, 179, 319, 599]
 ###########################################################################
 
 ###########################################################################
-#class 3
-#files =[123,157,183,184,187,188,192,195,205,214]
-#frame = [219, 409, 905, 1596, 556, 367, 279, 271, 340, 344]
+# class 3
+# files =[123,157,183,184,187,188,192,195,205,214]
+# frame = [219, 409, 905, 1596, 556, 367, 279, 271, 340, 344]
 ###########################################################################
 
-true_class_label_number = 2 #change true class label number
+true_class_label_number = 2  # change true class label number
 file_info = []
-kmeans_dict={}
+# kmeans_dict = {}
 true_positive_dict = {}
-#true_positive_frame = {}
-true_sample_dict={}
-#true_sample_frame={}
+# true_positive_frame = {}
+true_sample_dict = {}
+# true_sample_frame={}
+frame_result_ = {}
 
 for i in files:
     true_positive_dict[i] = {}
     true_sample_dict[i] = {}
+    frame_result_[i] = []
 
 
 ########################################################################
@@ -78,6 +81,7 @@ def read_pose_(filename):
 
     return js
 
+
 ########################################################################
 #                read json and write python list data                  #
 ########################################################################
@@ -89,16 +93,22 @@ def import_data_(start_num, end_num, index):
     file_number = start_num
     file_index = files[index]
 
-    while file_number < end_num:
-        #pose_file = "/home/jmseo/PycharmProjects/ETRIsvm/macrolabeling/macrojson/%03d/%03d_%012d_keypoints.json" % (file_index, file_index, file_number)
-        #pose_file = "/home/jmseo/Desktop/ETRI/%03d/%03d_%012d_keypoints.json" % (file_index, file_index, file_number)
-        #pose_file = "/home/jmseo/PycharmProjects/ETRIsvm/teahun/%03d/%03d_%012d_keypoints.json" % (file_index, file_index, file_number)
-        #class2
-        pose_file = "/home/jmseo/PycharmProjects/ETRIsvm/class2json/%03d/%03d_%012d_keypoints.json" % (file_index, file_index, file_number)
-        #class3
-        #pose_file = "/home/jmseo/PycharmProjects/ETRIsvm/class3json/%03d/%03d_%012d_keypoints.json" % (file_index, file_index, file_number)
+    while file_number <= end_num:
+        # pose_file = "/home/jmseo/PycharmProjects/ETRIsvm/macrolabeling/macrojson/%03d/%03d_%012d_keypoints.json" \
+        #             % (file_index, file_index, file_number)
+        # pose_file = "/home/jmseo/Desktop/ETRI/%03d/%03d_%012d_keypoints.json" % (file_index, file_index, file_number)
+        # pose_file = "/home/jmseo/PycharmProjects/ETRIsvm/teahun/%03d/%03d_%012d_keypoints.json" \
+        #             % (file_index, file_index, file_number)
+        # class2
+        pose_file = "/home/jmseo/PycharmProjects/ETRIsvm/class2json/%03d/%03d_%012d_keypoints.json" \
+                    % (file_index, file_index, file_number)
+        # class3
+        # pose_file = "/home/jmseo/PycharmProjects/ETRIsvm/class3json/%03d/%03d_%012d_keypoints.json" \
+        #             % (file_index, file_index, file_number)
 
-        dict_pose = read_pose_(pose_file)  #dict_pose = {}
+        frame_result_[file_number].append(False)  # evaluation related
+
+        dict_pose = read_pose_(pose_file)  # dict_pose = {}
         people = dict_pose['people']
 
         if not people:
@@ -106,12 +116,12 @@ def import_data_(start_num, end_num, index):
             continue
 
         for pose_list in enumerate(people):
-#            if pose_list[1]['pose_keypoints'][36] != 0 and pose_list[1]['pose_keypoints'][37] != 0 and \
-#                            pose_list[1]['pose_keypoints'][39] != 0 and pose_list[1]['pose_keypoints'][40] != 0:
+            # if pose_list[1]['pose_keypoints'][36] != 0 and pose_list[1]['pose_keypoints'][37] != 0 and \
+                            # pose_list[1]['pose_keypoints'][39] != 0 and pose_list[1]['pose_keypoints'][40] != 0:
 
             if pose_list[1]['pose_keypoints'][29] != 0 and pose_list[1]['pose_keypoints'][32] != 0 and \
                     pose_list[1]['pose_keypoints'][38] != 0 and pose_list[1]['pose_keypoints'][41] != 0 and \
-                            pose_list[1]['pose_keypoints'][5] != 0:
+                    pose_list[1]['pose_keypoints'][5] != 0:
 
                 if len(pose_list[1]['pose_keypoints']) == 54:
                     negative_sample.append(pose_list[1]['pose_keypoints'])
@@ -120,7 +130,7 @@ def import_data_(start_num, end_num, index):
                 elif len(pose_list[1]['pose_keypoints']) == 55:
                     positive_sample.append(pose_list[1]['pose_keypoints'])
                     y.append(pose_list[1]['pose_keypoints'].pop())
-                    if not file_number in true_sample_dict[file_index]:
+                    if file_number not in true_sample_dict[file_index]:
                         true_sample_dict[file_index][file_number] = []
                     true_sample_dict[file_index][file_number].append(pose_list[0])
 
@@ -133,6 +143,7 @@ def import_data_(start_num, end_num, index):
         file_number += 1
 
     return pose_key_points, y, positive_sample, negative_sample
+
 
 ########################################################################
 #              normalize the data using neck coordinate                #
@@ -151,6 +162,7 @@ def normalize_pose_(pose_data):
             base_index += 1
 
     return norm_pose_data
+
 
 ########################################################################
 #            scaling the data using knee & ankle distance              #
@@ -174,10 +186,11 @@ def scaling_data_(pose_data):
 
     return scaling_pose_data
 
+
 ########################################################################
 #                 make the true positive result movie                  #
 ########################################################################
-def check_true_positive_in_frame_(file_num, posi_dict,true_dict):
+def check_true_positive_in_frame_(file_num, posi_dict, true_dict):
     file_path = "/home/jmseo/openpose/examples/media/ETRI1/videoresult/%03dresult.avi" % file_num
 
     cap = cv2.VideoCapture(file_path)
@@ -202,10 +215,12 @@ def check_true_positive_in_frame_(file_num, posi_dict,true_dict):
         pose_file = "/home/jmseo/PycharmProjects/ETRIsvm/macrolabeling/macrojson/%03d/%03d_%012d_keypoints.json" \
                     % (file_num, file_num, frame_num)
 
-        # pose_file = "/home/jmseo/PycharmProjects/ETRIsvm/result/%03d/%03d_%012d_keypoints.json" % (file_num, file_num, frame_num)
-        #pose_file = "/home/jmseo/PycharmProjects/ETRIsvm/teahun/%03d/%03d_%012d_keypoints.json" % (
-        #file_num, file_num, frame_num)
-        # pose_file = "/home/jmseo/PycharmProjects/ETRIsvm/throw/%03d/%03d_%012d_keypoints.json" % (file_num, file_num, frame_num)
+        # pose_file = "/home/jmseo/PycharmProjects/ETRIsvm/result/%03d/%03d_%012d_keypoints.json" \
+        #             % (file_num, file_num, frame_num)
+        # pose_file = "/home/jmseo/PycharmProjects/ETRIsvm/teahun/%03d/%03d_%012d_keypoints.json" \
+        #             % (file_num, file_num, frame_num)
+        # pose_file = "/home/jmseo/PycharmProjects/ETRIsvm/throw/%03d/%03d_%012d_keypoints.json" \
+        #             % (file_num, file_num, frame_num)
         dict_pose = read_pose_(pose_file)  # dict_pose={}
         people = dict_pose['people']
 
@@ -215,24 +230,26 @@ def check_true_positive_in_frame_(file_num, posi_dict,true_dict):
                 temp_x = [temp[x * 3] for x in range(0, 18)]
                 temp_y = [temp[y * 3 + 1] for y in range(0, 18)]
                 cv2.rectangle(frame,
-                              (
-                              int(min(filter(lambda x: x > 0, temp_x))), int(min(filter(lambda x: x > 0, temp_y)))),
+                              (int(min(filter(lambda x: x > 0, temp_x))), int(min(filter(lambda x: x > 0, temp_y)))),
                               (int(max(temp_x)), int(max(temp_y))),
                               (255, 0, 0), thickness=3)
 
         if posi_dict and frame_num in posi_dict:
             cv2.circle(frame, (int(width)-200, int(height)-100), 40, (255, 255, 255), 40)
-            """
+
             # add new code
             pose_file = "/home/jmseo/PycharmProjects/ETRIsvm/macrolabeling/macrojson/%03d/%03d_%012d_keypoints.json" \
-                       % (file_num, file_num, frame_num)
+                        % (file_num, file_num, frame_num)
 
-            #pose_file = "/home/jmseo/PycharmProjects/ETRIsvm/class2json/%03d/%03d_%012d_keypoints.json" % (file_index, file_index, file_number)
-            pose_file = "/home/jmseo/PycharmProjects/ETRIsvm/teahun/%03d/%03d_%012d_keypoints.json" % (file_num, file_num, frame_num)
-            #pose_file = "/home/jmseo/PycharmProjects/ETRIsvm/throw/%03d/%03d_%012d_keypoints.json" % (file_num, file_num, frame_num)
-            dict_pose = read_pose_(pose_file)  #dict_pose={}
+            # pose_file = "/home/jmseo/PycharmProjects/ETRIsvm/class2json/%03d/%03d_%012d_keypoints.json" \
+            #             % (file_index, file_index, file_number)
+            # pose_file = "/home/jmseo/PycharmProjects/ETRIsvm/teahun/%03d/%03d_%012d_keypoints.json" \
+            #             % (file_num, file_num, frame_num)
+            # pose_file = "/home/jmseo/PycharmProjects/ETRIsvm/throw/%03d/%03d_%012d_keypoints.json" \
+            #             % (file_num, file_num, frame_num)
+            dict_pose = read_pose_(pose_file)  # dict_pose={}
             people = dict_pose['people']
-            """
+
             for i in posi_dict[frame_num]:
                 temp = people[i]['pose_keypoints']
                 temp_x = [temp[x*3] for x in range(0, 18)]
@@ -260,7 +277,7 @@ def check_true_positive_in_frame_(file_num, posi_dict,true_dict):
                     print(true_positive_dict.keys())
             """
 
-            #posi_list.pop(0)
+            # posi_list.pop(0)
 
         # frame_name = "%03d_check_positive_%06d.jpg" % (file_num, frame_num)
         # cv2.imwrite(frame_name, frame)
@@ -275,6 +292,7 @@ def check_true_positive_in_frame_(file_num, posi_dict,true_dict):
     out.release()
     cv2.destroyAllWindows()
 
+
 ########################################################################
 #             calculate the Precision, Recall and Accuracy             #
 ########################################################################
@@ -285,8 +303,16 @@ def check_classified_result_(predict_class, test_class, test_index, true_class_n
     true_negative = 0
     for index in range(0, len(predict_class)):
 
-        #change true class label
+        # change true class label
         if predict_class[index] == true_class_label_number:
+
+            # Evaluation related code
+            video_idx = file_info[test_index[index]][0]
+            frame_idx = file_info[test_index[index]][1]
+
+            # Evaluation related result save code
+            frame_result_[video_idx][frame_idx] = True
+
             """
             if test_class[index] == true_class_label_number:
                 true_positive += 1
@@ -320,7 +346,7 @@ def check_classified_result_(predict_class, test_class, test_index, true_class_n
             if test_class[index] == 0:
                 true_negative += 1
 
-            else: #elif test_class[index] == true_class_label_number:
+            else:  # elif test_class[index] == true_class_label_number:
                 false_negative += 1
 
     print('True Class: %d' % true_class_num,
@@ -335,9 +361,10 @@ def check_classified_result_(predict_class, test_class, test_index, true_class_n
           'Accuracy: %f' % (float(true_positive + true_negative)/len(test_class)))
 
 
+"""
 def k_means_check_result_(predict_class, test_index, k):
 
-    for i in range(0,k):
+    for i in range(0, k):
         kmeans_dict[i].append([])
 
     for index in range(0, len(predict_class)):
@@ -355,9 +382,10 @@ def k_means_check_result_(predict_class, test_index, k):
 ########################################################################
 def kmeans_classifier_(train_data, train_class, test_data):
     from sklearn.cluster import KMeans
-    #KMeans(n_clusters=3, random_state=True).fit(train_data)
+    # KMeans(n_clusters=3, random_state=True).fit(train_data)
 
     return KMeans(n_clusters=3, random_state=True).fit(train_data).predict(test_data)
+"""
 
 
 ########################################################################
@@ -365,11 +393,7 @@ def kmeans_classifier_(train_data, train_class, test_data):
 ########################################################################
 def support_vector_machine_classifier_(train_data, train_class, test_data):
     from sklearn.svm import SVC
-    # Support vector machine
-    #svc = SVC(kernel='linear', C=0.1).fit(train_data, train_class)
-    #y_predict = svc.predict(test_data)
 
-    # if you want weighted class svm, you could adjust class_weight parameter like "class_weight={0:0.08,3:0.92}"
     return SVC(kernel='linear', C=0.1, class_weight="auto").fit(train_data, train_class).predict(test_data)
 
 
@@ -399,8 +423,8 @@ def visualize_classification_result_(frame_length, true_frame_list, file_number)
     ax.set_ylabel('Y')
     ax.set_zlabel('Z')
 
-    plt.title('%d file' %file_number)
-    plt.savefig('%d file' %file_number)
+    plt.title('%d file' % file_number)
+    plt.savefig('%d file' % file_number)
 
 
 ########################################################################
@@ -410,6 +434,48 @@ def random_sampling_negative_(negative_sample):
     import random
 
     return random.shuffle(negative_sample)
+
+
+def read_ground_truth_():
+    # read ground truth using xml parser
+
+    tree = parse("file.xml")
+    note = tree.getroot()
+    return
+
+
+def overlap_window_(window_size_, predict_result_):
+
+    result_dict = {}
+    for key in predict_result_.keys():
+        result_dict[key] = []
+        size = predict_result_[key].size()
+        for index in range(0, size):
+
+            true_label_num = 0
+            false_label_num = 0
+
+            if index >= window_size_ and index >= size-window_size_:
+                start = index - window_size_
+                end = index + window_size_
+                for i in range(start, end):
+
+                    if predict_result_[key][i] == true_class_label_number:
+                        true_label_num += 1
+
+                    else:
+                        false_label_num += 1
+
+            if true_label_num == false_label_num:
+                result_dict[key].append(predict_result_[key][index])
+
+            elif true_label_num > false_label_num:
+                result_dict[key].append(True)
+
+            else:
+                result_dict[key].append(False)
+
+    return result_dict
 
 
 def main():
@@ -464,7 +530,7 @@ def main():
     # 10fold & shuffle = True
     skf = StratifiedKFold(n_splits=10, shuffle=True)
 
-    print("all",len(coord_key_point))
+    print("all", len(coord_key_point))
     # split train test
     for train_index, test_index in skf.split(coord_key_point, pose_class):
         train_data = []
@@ -484,13 +550,13 @@ def main():
 
         nega = 0
         posi = 0
-        for tr in  train_class:
+        for tr in train_class:
             if tr == 0:
                 nega += 1
             else:
                 posi += 1
 
-        print("train",posi, nega)
+        print("train", posi, nega)
 
         nega = 0
         posi = 0

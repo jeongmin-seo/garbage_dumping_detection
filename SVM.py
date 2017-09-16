@@ -27,15 +27,16 @@ from xml.etree.ElementTree import parse
 #########################################################################
 
 ##########################################################################
-# files = [11, 12, 15, 17, 18, 28, 31,41, 42, 58, 100, 113, 115, 117,
-#         120,124, 125, 127, 133, 136, 140, 144, 147, 153, 160, 161, 164, 165,
-#        172, 186, 189, 191, 196, 199, 202, 204, 206,213] #[1, 12, 30, 31, 43, 67, 69]
-# frame = [1030, 732, 319, 278, 224, 755, 1037, 871, 1442, 1761, 288, 170, 269, 1049,
-#        99, 214, 408, 499, 364, 202, 329, 359, 254, 419, 314, 135, 369, 269,
-#         839,628,287,522,715, 1194, 176,744, 1028,252] #[404, 732, 1619, 1037, 1906, 874, 486]
+files = [11, 12, 15, 17, 18, 28, 31,41, 42, 58, 113, 115, 117,
+         120,124, 125, 127, 133, 136, 140, 144, 147, 153, 160, 161, 164, 165,
+        172, 186, 189, 191, 196, 199, 202, 204, 213] #[1, 12, 30, 31, 43, 67, 69]
+frame = [1030, 732, 319, 278, 224, 755, 1037, 871, 1442, 1761, 170, 269, 1049,
+        99, 214, 408, 499, 364, 202, 329, 359, 254, 419, 314, 135, 369, 269,
+         839,628,287,522,715, 1194, 176,744, 252] #[404, 732, 1619, 1037, 1906, 874, 486]
 # Precision:0.8785148  Recall:0.3316766  Accuracy:0.8999
 # Precision:0.870783  Recall:0.3367419  Accuracy:0.8981
 # Precision:0.898605  Recall:0.3662108  Accuracy:0.909791
+# 100 video 288 frame // 206video 1028 frames
 ###########################################################################
 
 ###########################################################################
@@ -46,8 +47,8 @@ from xml.etree.ElementTree import parse
 
 ###########################################################################
 # class 2
-files = [6, 13, 23, 46, 57, 61, 65, 69, 72, 95, 99]
-frame = [593, 329, 509, 639, 824, 134, 457, 486, 179, 319, 599]
+#files = [6, 13, 23, 46, 57, 61, 65, 69, 72, 95, 99]
+#frame = [593, 329, 509, 639, 824, 134, 457, 486, 179, 319, 599]
 ###########################################################################
 
 ###########################################################################
@@ -56,19 +57,21 @@ frame = [593, 329, 509, 639, 824, 134, 457, 486, 179, 319, 599]
 # frame = [219, 409, 905, 1596, 556, 367, 279, 271, 340, 344]
 ###########################################################################
 
-true_class_label_number = 2  # change true class label number
+true_class_label_number = 1  # change true class label number
 file_info = []
 # kmeans_dict = {}
 true_positive_dict = {}
 # true_positive_frame = {}
 true_sample_dict = {}
 # true_sample_frame={}
-frame_result_ = {}
+frame_result_dict = {}
+ground_truth_dict = {}
 
 for i in files:
     true_positive_dict[i] = {}
     true_sample_dict[i] = {}
-    frame_result_[i] = []
+    frame_result_dict[i] = []
+    ground_truth_dict[i] = []
 
 
 ########################################################################
@@ -94,19 +97,19 @@ def import_data_(start_num, end_num, index):
     file_index = files[index]
 
     while file_number <= end_num:
-        # pose_file = "/home/jmseo/PycharmProjects/ETRIsvm/macrolabeling/macrojson/%03d/%03d_%012d_keypoints.json" \
-        #             % (file_index, file_index, file_number)
+        pose_file = "D:/ETRI/macrojson/macrojson/%03d/%03d_%012d_keypoints.json" \
+                   % (file_index, file_index, file_number)
         # pose_file = "/home/jmseo/Desktop/ETRI/%03d/%03d_%012d_keypoints.json" % (file_index, file_index, file_number)
         # pose_file = "/home/jmseo/PycharmProjects/ETRIsvm/teahun/%03d/%03d_%012d_keypoints.json" \
         #             % (file_index, file_index, file_number)
         # class2
-        pose_file = "/home/jmseo/PycharmProjects/ETRIsvm/class2json/%03d/%03d_%012d_keypoints.json" \
-                    % (file_index, file_index, file_number)
+        #pose_file = "D:\ETRI\class2json\class2json\%03d\%03d_%012d_keypoints.json" \
+        #            % (file_index, file_index, file_number)
         # class3
         # pose_file = "/home/jmseo/PycharmProjects/ETRIsvm/class3json/%03d/%03d_%012d_keypoints.json" \
         #             % (file_index, file_index, file_number)
 
-        frame_result_[file_number].append(False)  # evaluation related
+        frame_result_dict[file_index].append(False)  # evaluation related
 
         dict_pose = read_pose_(pose_file)  # dict_pose = {}
         people = dict_pose['people']
@@ -311,7 +314,7 @@ def check_classified_result_(predict_class, test_class, test_index, true_class_n
             frame_idx = file_info[test_index[index]][1]
 
             # Evaluation related result save code
-            frame_result_[video_idx][frame_idx] = True
+            frame_result_dict[video_idx][frame_idx] = True
 
             """
             if test_class[index] == true_class_label_number:
@@ -348,7 +351,7 @@ def check_classified_result_(predict_class, test_class, test_index, true_class_n
 
             else:  # elif test_class[index] == true_class_label_number:
                 false_negative += 1
-
+"""
     print('True Class: %d' % true_class_num,
           'True Positive: %d' % true_positive,
           'True Negative: %d' % true_negative,
@@ -359,7 +362,7 @@ def check_classified_result_(predict_class, test_class, test_index, true_class_n
     print('Precision: %f' % (float(true_positive)/(true_positive+false_positive)),
           'Recall: %f' % (float(true_positive)/(true_positive+false_negative)),
           'Accuracy: %f' % (float(true_positive + true_negative)/len(test_class)))
-
+"""
 
 """
 def k_means_check_result_(predict_class, test_index, k):
@@ -394,7 +397,7 @@ def kmeans_classifier_(train_data, train_class, test_data):
 def support_vector_machine_classifier_(train_data, train_class, test_data):
     from sklearn.svm import SVC
 
-    return SVC(kernel='linear', C=0.1, class_weight="auto").fit(train_data, train_class).predict(test_data)
+    return SVC(kernel='linear', C=0.1).fit(train_data, train_class).predict(test_data)
 
 
 ########################################################################
@@ -436,12 +439,25 @@ def random_sampling_negative_(negative_sample):
     return random.shuffle(negative_sample)
 
 
-def read_ground_truth_():
+def read_ground_truth_(file_number):
     # read ground truth using xml parser
 
-    tree = parse("file.xml")
-    note = tree.getroot()
-    return
+    ground_truth_list = [False for i in range(0, frame[files.index(file_number)])]
+
+    file_name = "D:\ETRI\ETRIxml\%03d.xml" % file_number
+    print(file_number)
+    tree = parse(file_name)
+    verbs = tree.getroot().find("Verbs").findall("Verb")
+
+    for verb in verbs:
+        Tracks = verb.find("Tracks").findall("Track")
+        print("Track legth", len(Tracks))
+        for track in Tracks:
+            ground_truth_list[int(track.get("frameNum"))] = True
+
+    ground_truth_dict[file_number] = ground_truth_list
+
+    return ground_truth_list
 
 
 def overlap_window_(window_size_, predict_result_):
@@ -449,15 +465,15 @@ def overlap_window_(window_size_, predict_result_):
     result_dict = {}
     for key in predict_result_.keys():
         result_dict[key] = []
-        size = predict_result_[key].size()
+        size = len(predict_result_[key])
         for index in range(0, size):
 
             true_label_num = 0
             false_label_num = 0
 
-            if index >= window_size_ and index >= size-window_size_:
+            if index >= window_size_ and index <= size-window_size_-1:
                 start = index - window_size_
-                end = index + window_size_
+                end = index + window_size_+1
                 for i in range(start, end):
 
                     if predict_result_[key][i] == true_class_label_number:
@@ -478,16 +494,37 @@ def overlap_window_(window_size_, predict_result_):
     return result_dict
 
 
+def calculate_evaluation_(_frame_result_dict, _ground_truth_dict):
+
+    for key in _frame_result_dict.keys():
+        true_posi = 0
+        false_nega = 0
+        for index in range(0, frame[files.index(key)]):
+
+            if _ground_truth_dict[key][index] == True:
+
+                if _ground_truth_dict[key][index] == _frame_result_dict[key][index]:
+                    true_posi += 1
+
+                else:
+                    false_nega += 1
+
+        print(key, true_posi, false_nega)
+    # print(true_posi / float(true_posi + false_nega), false_nega / float(true_posi + false_nega))
+
+
 def main():
     print('start')
     key_point = []
     pose_class = []
+
 
 ########################################################################
 #                     import data to python list                       #
 ########################################################################
     for i in range(0, len(files)):
         tmp_key_point, tmp_pose_class, tmp_positive, tmp_negative = import_data_(0, frame[i], i)
+        ground_truth_dict[files[i]] = read_ground_truth_(files[i])
         if i == 0:
             key_point = tmp_key_point
             pose_class = tmp_pose_class
@@ -573,6 +610,9 @@ def main():
 ########################################################################
         predict_class = support_vector_machine_classifier_(train_data, train_class, test_data)
         check_classified_result_(predict_class, test_class, test_index, true_class_num)
+
+    predict_dict = overlap_window_(2, frame_result_dict)
+    calculate_evaluation_(predict_dict, ground_truth_dict)
 
 ########################################################################
 #                      make result movie and graph                     #

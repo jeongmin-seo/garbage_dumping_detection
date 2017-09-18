@@ -27,7 +27,7 @@ from xml.etree.ElementTree import parse
 #########################################################################
 
 ##########################################################################
-files = [11, 12, 15, 17, 18, 28, 31,41, 42, 58, 113, 115, 117,
+files = [11, 12, 15, 17, 18, 28, 31, 41, 42, 58, 113, 115, 117,
          120,124, 125, 127, 133, 136, 140, 144, 147, 153, 160, 161, 164, 165,
         172, 186, 189, 191, 196, 199, 202, 204, 213] #[1, 12, 30, 31, 43, 67, 69]
 frame = [1030, 732, 319, 278, 224, 755, 1037, 871, 1442, 1761, 170, 269, 1049,
@@ -471,6 +471,30 @@ def overlap_window_(window_size_, predict_result_):
     return result_dict
 
 
+def overlap_window_all_cover(window_size_, predict_result_):
+    result_dict = {}
+    result_range_dict = {}
+    for key in predict_result_.keys():
+        size = len(predict_result_[key])
+        result_dict[key] = [False]*size
+        result_range_dict[key] = []
+
+        index = 0
+        while index < size:
+            if predict_result_[key][index] == true_class_label_number:
+                start = max(0, index - window_size_)
+                end = min(size, index + window_size_)
+
+                for i in range(start, end):
+                    result_dict[key][i] = True
+                index = end
+                continue
+
+            index += 1
+
+    return result_dict
+
+
 def check_positive_range(_dictionary):
     result = {}
     cur_state = False
@@ -624,7 +648,8 @@ def main():
         predict_class = support_vector_machine_classifier_(train_data, train_class, test_data)
         check_classified_result_(predict_class, test_class, test_index, true_class_num)
 
-    predict_dict = overlap_window_(30, frame_result_dict)
+    # predict_dict = overlap_window_(1, frame_result_dict)
+    predict_dict = overlap_window_all_cover(30, frame_result_dict)
     calculate_evaluation_(predict_dict, ground_truth_dict)
 
 ########################################################################

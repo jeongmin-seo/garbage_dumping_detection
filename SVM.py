@@ -66,6 +66,7 @@ true_sample_dict = {}
 # true_sample_frame={}
 frame_result_dict = {}
 ground_truth_dict = {}
+gt_and_detect_result = {}
 
 for i in files:
     true_positive_dict[i] = {}
@@ -97,7 +98,7 @@ def import_data_(start_num, end_num, index):
     file_index = files[index]
 
     while file_number <= end_num:
-        pose_file = "D:/ETRI/macrojson/macrojson/%03d/%03d_%012d_keypoints.json" \
+        pose_file = "D:\etri_data\macrojson\macrojson\%03d\%03d_%012d_keypoints.json" \
                    % (file_index, file_index, file_number)
         # pose_file = "/home/jmseo/Desktop/ETRI/%03d/%03d_%012d_keypoints.json" % (file_index, file_index, file_number)
         # pose_file = "/home/jmseo/PycharmProjects/ETRIsvm/teahun/%03d/%03d_%012d_keypoints.json" \
@@ -364,32 +365,6 @@ def check_classified_result_(predict_class, test_class, test_index, true_class_n
           'Accuracy: %f' % (float(true_positive + true_negative)/len(test_class)))
 """
 
-"""
-def k_means_check_result_(predict_class, test_index, k):
-
-    for i in range(0, k):
-        kmeans_dict[i].append([])
-
-    for index in range(0, len(predict_class)):
-
-        if predict_class[index] == 0:
-            kmeans_dict[file_info[test_index[index]][0]].append(file_info[test_index[index]][1])
-
-        elif predict_class[index] == 1:
-            kmeans_dict[file_info[test_index[index]][0]].append(file_info[test_index[index]][1])
-
-
-
-########################################################################
-#             predict class using k-means cluster algorithm            #
-########################################################################
-def kmeans_classifier_(train_data, train_class, test_data):
-    from sklearn.cluster import KMeans
-    # KMeans(n_clusters=3, random_state=True).fit(train_data)
-
-    return KMeans(n_clusters=3, random_state=True).fit(train_data).predict(test_data)
-"""
-
 
 ########################################################################
 #             predict class using support vector machine               #
@@ -444,14 +419,14 @@ def read_ground_truth_(file_number):
 
     ground_truth_list = [False for i in range(0, frame[files.index(file_number)])]
 
-    file_name = "D:\ETRI\ETRIxml\%03d.xml" % file_number
-    print(file_number)
+    file_name = "C:\Users\JM\Desktop\ETRI\ETRIxml\%03d.xml" % file_number
+    # print(file_number)
     tree = parse(file_name)
     verbs = tree.getroot().find("Verbs").findall("Verb")
 
     for verb in verbs:
         Tracks = verb.find("Tracks").findall("Track")
-        print("Track legth", len(Tracks))
+        # print("Track legth", len(Tracks))
         for track in Tracks:
             ground_truth_list[int(track.get("frameNum"))] = True
 
@@ -463,15 +438,17 @@ def read_ground_truth_(file_number):
 def overlap_window_(window_size_, predict_result_):
 
     result_dict = {}
+    result_range_dict = {}
     for key in predict_result_.keys():
         result_dict[key] = []
+        result_range_dict[key] = []
         size = len(predict_result_[key])
         for index in range(0, size):
 
             true_label_num = 0
             false_label_num = 0
 
-            if index >= window_size_ and index <= size-window_size_-1:
+            if window_size_ <= index <= size-window_size_-1:
                 start = index - window_size_
                 end = index + window_size_+1
                 for i in range(start, end):
@@ -494,23 +471,81 @@ def overlap_window_(window_size_, predict_result_):
     return result_dict
 
 
-def calculate_evaluation_(_frame_result_dict, _ground_truth_dict):
+def check_positive_range(_dictionary):
+    result = {}
+    cur_state = False
+    start = 0
+    end = 0
+    for key in _dictionary.keys():
 
-    for key in _frame_result_dict.keys():
-        true_posi = 0
-        false_nega = 0
-        for index in range(0, frame[files.index(key)]):
+        result[key] = []
+        for size in range(0, frame[files.index(key)]):
 
-            if _ground_truth_dict[key][index] == True:
-
-                if _ground_truth_dict[key][index] == _frame_result_dict[key][index]:
-                    true_posi += 1
+            if cur_state != _dictionary[key][size]:
+                if cur_state :
+                    cur_state = False
+                    end = size
+                    result[key].append([start, end])
 
                 else:
-                    false_nega += 1
+                    cur_state = True
+                    start = size
 
-        print(key, true_posi, false_nega)
-    # print(true_posi / float(true_posi + false_nega), false_nega / float(true_posi + false_nega))
+    return result
+
+
+def detect_base_calculate_result_(_detect_range_list, _gt_and_detect_list):
+    false_posi = 0
+    for detect_range in _detect_range_list:
+
+        if not detect_range:
+            continue
+
+        rate = float(_gt_and_detect_list[detect_range[0]: detect_range[1]].count(True)) \
+               / float(detect_range[1] - detect_range[0])
+        if rate < 0.5:
+            false_posi += 1
+
+    return false_posi
+
+
+def gt_base_calculate_result_(_gt_range_list, _gt_and_detect_list):
+    true_posi = 0
+    false_nega = 0
+    for gt_range in _gt_range_list:
+
+        if not gt_range:
+            continue
+
+        rate = float(_gt_and_detect_list[gt_range[0]: gt_range[1]].count(True)) \
+               / float(gt_range[1] - gt_range[0])
+
+        if rate >= 0.5:
+            true_posi += 1
+        else:
+            false_nega += 1
+
+    return true_posi, false_nega
+
+
+def calculate_evaluation_(_detect_result_dict, _ground_truth_dict):
+    false_posi = 0
+    true_posi = 0
+    false_nega = 0
+    _detect_result_range = check_positive_range(_detect_result_dict)
+    _ground_truth_range = check_positive_range(_ground_truth_dict)
+
+    for key in _detect_result_dict.keys():
+        gt_and_detect_result[key] = [a and b for a, b in zip(_detect_result_dict[key], _ground_truth_dict[key])]
+
+        tp, fn = gt_base_calculate_result_(_ground_truth_range[key], gt_and_detect_result[key])
+        false_posi += detect_base_calculate_result_(_detect_result_range[key], gt_and_detect_result[key])
+        true_posi += tp
+        false_nega += fn
+
+    print("True Positive:", true_posi)
+    print("False Negative", false_nega)
+    print("False Positive", false_posi)
 
 
 def main():
@@ -551,12 +586,10 @@ def main():
             coord_key_point[len(coord_key_point) - 1].append(point[index * 3])
             coord_key_point[len(coord_key_point) - 1].append(point[index * 3 + 1])
 
-    print(len(scaling_key_point))
     true = 0
     for pose in pose_class:
         if pose == true_class_label_number:
             true += 1
-    print(true)
     print("k-fold")
 
 
@@ -575,7 +608,7 @@ def main():
         train_class = []
         test_class = []
         true_class_num = 0
-        print(len(train_index), len(test_index))
+        # print(len(train_index), len(test_index))
         for index in train_index:
             train_data.append(coord_key_point[index])
             train_class.append(pose_class[index])
@@ -585,33 +618,13 @@ def main():
             if pose_class[index] == true_class_label_number:
                 true_class_num += 1
 
-        nega = 0
-        posi = 0
-        for tr in train_class:
-            if tr == 0:
-                nega += 1
-            else:
-                posi += 1
-
-        print("train", posi, nega)
-
-        nega = 0
-        posi = 0
-        for tr in test_class:
-            if tr == 0:
-                nega += 1
-            else:
-                posi += 1
-
-        print("test", posi, nega)
-
 ########################################################################
 #     predict test class & calculate Precision Recall and Accuracy     #
 ########################################################################
         predict_class = support_vector_machine_classifier_(train_data, train_class, test_data)
         check_classified_result_(predict_class, test_class, test_index, true_class_num)
 
-    predict_dict = overlap_window_(2, frame_result_dict)
+    predict_dict = overlap_window_(30, frame_result_dict)
     calculate_evaluation_(predict_dict, ground_truth_dict)
 
 ########################################################################

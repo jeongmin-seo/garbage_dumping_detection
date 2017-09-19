@@ -28,11 +28,11 @@ from xml.etree.ElementTree import parse
 
 ##########################################################################
 files = [11, 12, 15, 17, 18, 28, 31, 41, 42, 58, 113, 115, 117,
-         120,124, 125, 127, 133, 136, 140, 144, 147, 153, 160, 161, 164, 165,
-        172, 186, 189, 191, 196, 199, 202, 204, 213] #[1, 12, 30, 31, 43, 67, 69]
+         120, 124, 125, 127, 133, 136, 140, 144, 147, 153, 160, 161, 164, 165,
+        172, 186, 189, 191, 196, 199, 202, 204, 213]  # [1, 12, 30, 31, 43, 67, 69]
 frame = [1030, 732, 319, 278, 224, 755, 1037, 871, 1442, 1761, 170, 269, 1049,
         99, 214, 408, 499, 364, 202, 329, 359, 254, 419, 314, 135, 369, 269,
-         839,628,287,522,715, 1194, 176,744, 252] #[404, 732, 1619, 1037, 1906, 874, 486]
+         839, 628, 287, 522, 715, 1194, 176, 744, 252]  # [404, 732, 1619, 1037, 1906, 874, 486]
 # Precision:0.8785148  Recall:0.3316766  Accuracy:0.8999
 # Precision:0.870783  Recall:0.3367419  Accuracy:0.8981
 # Precision:0.898605  Recall:0.3662108  Accuracy:0.909791
@@ -59,17 +59,24 @@ frame = [1030, 732, 319, 278, 224, 755, 1037, 871, 1442, 1761, 170, 269, 1049,
 
 true_class_label_number = 1  # change true class label number
 file_info = []
-# kmeans_dict = {}
-true_positive_dict = {}
+
 # true_positive_frame = {}
-true_sample_dict = {}
 # true_sample_frame={}
+
+# graph related
+true_sample_dict = {}
+true_positive_dict = {}
+predict_positive_dict = {}
+
+# evaluation related
 frame_result_dict = {}
 ground_truth_dict = {}
 gt_and_detect_result = {}
 
+# initialize global variance
 for i in files:
     true_positive_dict[i] = {}
+    predict_positive_dict[i] = {}
     true_sample_dict[i] = {}
     frame_result_dict[i] = []
     ground_truth_dict[i] = []
@@ -98,17 +105,8 @@ def import_data_(start_num, end_num, index):
     file_index = files[index]
 
     while file_number <= end_num:
-        pose_file = "D:\etri_data\macrojson\macrojson\%03d\%03d_%012d_keypoints.json" \
-                   % (file_index, file_index, file_number)
-        # pose_file = "/home/jmseo/Desktop/ETRI/%03d/%03d_%012d_keypoints.json" % (file_index, file_index, file_number)
-        # pose_file = "/home/jmseo/PycharmProjects/ETRIsvm/teahun/%03d/%03d_%012d_keypoints.json" \
-        #             % (file_index, file_index, file_number)
-        # class2
-        #pose_file = "D:\ETRI\class2json\class2json\%03d\%03d_%012d_keypoints.json" \
-        #            % (file_index, file_index, file_number)
-        # class3
-        # pose_file = "/home/jmseo/PycharmProjects/ETRIsvm/class3json/%03d/%03d_%012d_keypoints.json" \
-        #             % (file_index, file_index, file_number)
+        pose_file = "C:\Users\JM\Desktop\Data\ETRIrelated\jsonfile_class%d\%03d\%03d_%012d_keypoints.json" \
+                   % (true_class_label_number, file_index, file_index, file_number)
 
         frame_result_dict[file_index].append(False)  # evaluation related
 
@@ -120,9 +118,6 @@ def import_data_(start_num, end_num, index):
             continue
 
         for pose_list in enumerate(people):
-            # if pose_list[1]['pose_keypoints'][36] != 0 and pose_list[1]['pose_keypoints'][37] != 0 and \
-                            # pose_list[1]['pose_keypoints'][39] != 0 and pose_list[1]['pose_keypoints'][40] != 0:
-
             if pose_list[1]['pose_keypoints'][29] != 0 and pose_list[1]['pose_keypoints'][32] != 0 and \
                     pose_list[1]['pose_keypoints'][38] != 0 and pose_list[1]['pose_keypoints'][41] != 0 and \
                     pose_list[1]['pose_keypoints'][5] != 0:
@@ -216,8 +211,8 @@ def check_true_positive_in_frame_(file_num, posi_dict, true_dict):
         cv2.putText(frame, str(frame_num), (100, 100), font, 4, (255, 255, 255), 2, cv2.LINE_AA)
 
         # add new code
-        pose_file = "/home/jmseo/PycharmProjects/ETRIsvm/macrolabeling/macrojson/%03d/%03d_%012d_keypoints.json" \
-                    % (file_num, file_num, frame_num)
+        pose_file = "C:\Users\JM\Desktop\Data\ETRIrelated\jsonfile_class%d\%03d\%03d_%012d_keypoints.json" \
+                    % (true_class_label_number, file_num, file_num, frame_num)
 
         # pose_file = "/home/jmseo/PycharmProjects/ETRIsvm/result/%03d/%03d_%012d_keypoints.json" \
         #             % (file_num, file_num, frame_num)
@@ -263,26 +258,6 @@ def check_true_positive_in_frame_(file_num, posi_dict, true_dict):
                               (int(max(temp_x)+5), int(max(temp_y)+5)),
                               (0, 0, 255), thickness=3)
 
-            """
-            for i in true_positive_frame[posi_list[0]]:
-                try:
-                    temp = people[i]['pose_keypoints']
-                    temp_x = [temp[x*3] for x in range(0, 18)]
-                    temp_y = [temp[y*3 + 1] for y in range(0, 18)]
-                    cv2.rectangle(frame,
-                                  (int(min(filter(lambda x: x > 0, temp_x))), int(min(filter(lambda x: x > 0, temp_y)))),
-                                  (int(max(temp_x)), int(max(temp_y))),
-                                  (0, 0, 255), thickness=3)
-
-                except:
-                    print("frame:", frame_num)
-                    print(i, len(people))
-                    print(true_positive_frame.keys())
-                    print(true_positive_dict.keys())
-            """
-
-            # posi_list.pop(0)
-
         # frame_name = "%03d_check_positive_%06d.jpg" % (file_num, frame_num)
         # cv2.imwrite(frame_name, frame)
         out.write(frame)
@@ -317,34 +292,15 @@ def check_classified_result_(predict_class, test_class, test_index, true_class_n
             # Evaluation related result save code
             frame_result_dict[video_idx][frame_idx] = True
 
-            """
-            if test_class[index] == true_class_label_number:
-                true_positive += 1
-#                true_positive_dict[file_info[test_index[index]][0]].append(file_info[test_index[index]][1])
+            if frame_idx not in predict_positive_dict[video_idx]:
+                predict_positive_dict[video_idx][frame_idx] = []
+            predict_positive_dict[video_idx][frame_idx].append(file_info[test_index[index]][2])
 
-#               if not file_info[test_index[index]][1] in true_positive_frame:
-#                    true_positive_frame[file_info[test_index[index]][1]] = []
-
-#                true_positive_frame[file_info[test_index[index]][1]].append(file_info[test_index[index]][2])
-
-                if not file_info[test_index[index]][1] in true_positive_dict[file_info[test_index[index]][0]]:
-                    true_positive_dict[file_info[test_index[index]][0]][file_info[test_index[index]][1]]=[]
-                true_positive_dict[file_info[test_index[index]][0]][file_info[test_index[index]][1]].append(file_info[test_index[index]][2])
-
-            elif test_class[index] == 0:
-                false_positive += 1
-            """
             if test_class[index] == 0:
                 false_positive += 1
 
             else:
                 true_positive += 1
-                """
-                if not file_info[test_index[index]][1] in true_positive_dict[file_info[test_index[index]][0]]:
-                    true_positive_dict[file_info[test_index[index]][0]][file_info[test_index[index]][1]] = []
-                true_positive_dict[file_info[test_index[index]][0]][file_info[test_index[index]][1]].append(
-                    file_info[test_index[index]][2])
-                """
 
         elif predict_class[index] == 0:
             if test_class[index] == 0:
@@ -352,18 +308,6 @@ def check_classified_result_(predict_class, test_class, test_index, true_class_n
 
             else:  # elif test_class[index] == true_class_label_number:
                 false_negative += 1
-"""
-    print('True Class: %d' % true_class_num,
-          'True Positive: %d' % true_positive,
-          'True Negative: %d' % true_negative,
-          'False Positive: %d' % false_positive,
-          'Missing: %d' % false_negative,
-          'All: %d' % len(test_class))
-
-    print('Precision: %f' % (float(true_positive)/(true_positive+false_positive)),
-          'Recall: %f' % (float(true_positive)/(true_positive+false_negative)),
-          'Accuracy: %f' % (float(true_positive + true_negative)/len(test_class)))
-"""
 
 
 ########################################################################
@@ -378,7 +322,7 @@ def support_vector_machine_classifier_(train_data, train_class, test_data):
 ########################################################################
 #            draw visualize graph /  compare GT with result            #
 ########################################################################
-def visualize_classification_result_(frame_length, true_frame_list, file_number):
+def visualize_classification_result_(frame_length, true_frame_list, file_number, true_sample_list):
     fig = plt.figure()
     ax = fig.add_subplot(111, projection='3d')
     xs = np.arange(frame_length)
@@ -387,7 +331,7 @@ def visualize_classification_result_(frame_length, true_frame_list, file_number)
     # You can provide either a single color or an array. To demonstrate this,
     # the first bar of each set will be colored cyan.
     cs = ['darkblue'] * frame_length
-    for cr in true_frame_list:
+    for cr in true_sample_list:
         cs[cr] = 'lightblue'
     ax.bar(xs, ys, zs=0, zdir='z', color=cs, width=1.1)
 
@@ -417,17 +361,15 @@ def random_sampling_negative_(negative_sample):
 def read_ground_truth_(file_number):
     # read ground truth using xml parser
 
-    ground_truth_list = [False for i in range(0, frame[files.index(file_number)])]
+    ground_truth_list = [False] * frame[files.index(file_number)]
 
     file_name = "C:\Users\JM\Desktop\ETRI\ETRIxml\%03d.xml" % file_number
-    # print(file_number)
     tree = parse(file_name)
     verbs = tree.getroot().find("Verbs").findall("Verb")
 
     for verb in verbs:
-        Tracks = verb.find("Tracks").findall("Track")
-        # print("Track legth", len(Tracks))
-        for track in Tracks:
+        tracks = verb.find("Tracks").findall("Track")
+        for track in tracks:
             ground_truth_list[int(track.get("frameNum"))] = True
 
     ground_truth_dict[file_number] = ground_truth_list
@@ -500,13 +442,14 @@ def check_positive_range(_dictionary):
     cur_state = False
     start = 0
     end = 0
+
     for key in _dictionary.keys():
 
         result[key] = []
         for size in range(0, frame[files.index(key)]):
 
             if cur_state != _dictionary[key][size]:
-                if cur_state :
+                if cur_state:
                     cur_state = False
                     end = size
                     result[key].append([start, end])
@@ -525,8 +468,8 @@ def detect_base_calculate_result_(_detect_range_list, _gt_and_detect_list):
         if not detect_range:
             continue
 
-        rate = float(_gt_and_detect_list[detect_range[0]: detect_range[1]].count(True)) \
-               / float(detect_range[1] - detect_range[0])
+        denominator = float(detect_range[1] - detect_range[0]+1)
+        rate = float(_gt_and_detect_list[detect_range[0]: detect_range[1]].count(True)) / denominator
         if rate < 0.5:
             false_posi += 1
 
@@ -541,8 +484,8 @@ def gt_base_calculate_result_(_gt_range_list, _gt_and_detect_list):
         if not gt_range:
             continue
 
-        rate = float(_gt_and_detect_list[gt_range[0]: gt_range[1]].count(True)) \
-               / float(gt_range[1] - gt_range[0])
+        denominator = float(gt_range[1] - gt_range[0] + 1)
+        rate = float(_gt_and_detect_list[gt_range[0]: gt_range[1]].count(True)) / denominator
 
         if rate >= 0.5:
             true_posi += 1
@@ -567,9 +510,11 @@ def calculate_evaluation_(_detect_result_dict, _ground_truth_dict):
         true_posi += tp
         false_nega += fn
 
-    print("True Positive:", true_posi)
-    print("False Negative", false_nega)
-    print("False Positive", false_posi)
+    recall = float(true_posi) / float(false_posi + false_nega)
+    precision = float(true_posi) / float(true_posi + false_posi)
+
+    print ("Recall:", recall)
+    print ("Precision:", precision)
 
 
 def main():
@@ -581,9 +526,10 @@ def main():
 ########################################################################
 #                     import data to python list                       #
 ########################################################################
-    for i in range(0, len(files)):
-        tmp_key_point, tmp_pose_class, tmp_positive, tmp_negative = import_data_(0, frame[i], i)
-        ground_truth_dict[files[i]] = read_ground_truth_(files[i])
+    for data in files:
+        index_ = files.index(data)
+        tmp_key_point, tmp_pose_class, tmp_positive, tmp_negative = import_data_(0, frame[index_], index_)
+        ground_truth_dict[data] = read_ground_truth_(data)
         if i == 0:
             key_point = tmp_key_point
             pose_class = tmp_pose_class
@@ -632,7 +578,6 @@ def main():
         train_class = []
         test_class = []
         true_class_num = 0
-        # print(len(train_index), len(test_index))
         for index in train_index:
             train_data.append(coord_key_point[index])
             train_class.append(pose_class[index])
@@ -648,20 +593,20 @@ def main():
         predict_class = support_vector_machine_classifier_(train_data, train_class, test_data)
         check_classified_result_(predict_class, test_class, test_index, true_class_num)
 
-    # predict_dict = overlap_window_(1, frame_result_dict)
-    predict_dict = overlap_window_all_cover(30, frame_result_dict)
+    predict_dict = overlap_window_all_cover(60, frame_result_dict)
     calculate_evaluation_(predict_dict, ground_truth_dict)
 
 ########################################################################
 #                      make result movie and graph                     #
 ########################################################################
-"""
+
     print('make moving picture')
-    for key in true_positive_dict.keys():
-        check_true_positive_in_frame_(key, true_positive_dict[key],true_sample_dict[key])
+    for key in predict_positive_dict.keys():
+        # check_true_positive_in_frame_(key, true_positive_dict[key], true_sample_dict[key])
         frame_length = frame[files.index(key)]
-        visualize_classification_result_(frame_length,true_positive_dict[key].keys(), key)
-"""
+        visualize_classification_result_(frame_length, predict_positive_dict[key].keys(),
+                                         key, true_sample_dict[key].keys())
+
 
 if __name__ == '__main__':
     main()

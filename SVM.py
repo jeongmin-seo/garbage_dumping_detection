@@ -2,60 +2,26 @@ import json
 from sklearn.model_selection import StratifiedKFold
 import cv2
 import os
-import glob
-from mpl_toolkits.mplot3d import Axes3D
 import matplotlib.pyplot as plt
 import numpy as np
 from xml.etree.ElementTree import parse
 
+files = [5, 15, 17, 18, 28,
+         31, 41, 42, 58, 100,
+         113, 115, 117, 120, 124,
+         125, 127, 133, 136, 140,
+         144, 147, 153, 160, 161,
+         164, 165, 172, 186, 191,
+         196, 199, 202, 206, 213
+         ]
 
-#########################################################################
-# files = [1, 12, 30, 31, 43, 67, 69]
-# frame = [404, 732, 1619, 1037, 1906, 874, 486]
-# Precision:0.8436331  Recall:0.4432278  Accuracy:0.9328258
-#########################################################################
-
-#########################################################################
-# files = [5,14,19,30,33,38,44,189]
-# frame = [703,453,2173,1619,1075,423,1083,287]
-# Precision:  Recall:  Accuracy:
-#########################################################################
-
-#########################################################################
-# files = [5,189]
-# frame = [703,287]
-#########################################################################
-
-##########################################################################
-files = [11, 12, 15, 17, 18, 28, 31, 41, 42, 58, 113, 115, 117,
-         120, 124, 125, 127, 133, 136, 140, 144, 147, 153, 160, 161, 164, 165,
-        172, 186, 189, 191, 196, 199, 202, 204, 213]  # [1, 12, 30, 31, 43, 67, 69]
-frame = [1030, 732, 319, 278, 224, 755, 1037, 871, 1442, 1761, 170, 269, 1049,
-        99, 214, 408, 499, 364, 202, 329, 359, 254, 419, 314, 135, 369, 269,
-         839, 628, 287, 522, 715, 1194, 176, 744, 252]  # [404, 732, 1619, 1037, 1906, 874, 486]
-# Precision:0.8785148  Recall:0.3316766  Accuracy:0.8999
-# Precision:0.870783  Recall:0.3367419  Accuracy:0.8981
-# Precision:0.898605  Recall:0.3662108  Accuracy:0.909791
-# 100 video 288 frame // 206video 1028 frames
-###########################################################################
-
-###########################################################################
-# teahun's file
-# files = [15,17,18,28,31,41,42]
-# frame = [319, 278, 224, 755, 1037, 871, 1442]
-###########################################################################
-
-###########################################################################
-# class 2
-#files = [6, 13, 23, 46, 57, 61, 65, 69, 72, 95, 99]
-#frame = [593, 329, 509, 639, 824, 134, 457, 486, 179, 319, 599]
-###########################################################################
-
-###########################################################################
-# class 3
-# files =[123,157,183,184,187,188,192,195,205,214]
-# frame = [219, 409, 905, 1596, 556, 367, 279, 271, 340, 344]
-###########################################################################
+frame = [703, 319, 278, 224, 755,
+         1037, 871, 1442, 1761, 288,
+         170, 269, 1049, 99, 214,
+         408, 499, 364, 202, 329,
+         359, 254, 419, 314, 135,
+         369, 269, 839, 628, 522,
+         715, 1194, 176, 1028, 252]
 
 true_class_label_number = 1  # change true class label number
 file_info = []
@@ -322,30 +288,39 @@ def support_vector_machine_classifier_(train_data, train_class, test_data):
 ########################################################################
 #            draw visualize graph /  compare GT with result            #
 ########################################################################
-def visualize_classification_result_(frame_length, true_frame_list, file_number, true_sample_list):
+def visualize_classification_result_(frame_length, _ground_truth_list, file_number, _predict_list):
     fig = plt.figure()
-    ax = fig.add_subplot(111, projection='3d')
+    ax = fig.add_subplot(111)
+    frame_length = frame_length + 1
     xs = np.arange(frame_length)
     ys = [5] * frame_length
 
     # You can provide either a single color or an array. To demonstrate this,
     # the first bar of each set will be colored cyan.
-    cs = ['darkblue'] * frame_length
-    for cr in true_sample_list:
+    cs = [1] * frame_length
+
+    for i in range(0, len(_ground_truth_list)):
+        if _ground_truth_list[i]:
+            cs[i] += 1
+    """
+    for cr in _ground_truth_list:
         cs[cr] = 'lightblue'
-    ax.bar(xs, ys, zs=0, zdir='z', color=cs, width=1.1)
+    """
+    ax.plot(xs, cs, color='darkred')
 
-    for cr in true_frame_list:
+    for _list in _predict_list:
+        for cr in range(_list[0], _list[1]+1):
+            ys[cr] += 1
+    """
+    for cr in _predict_list:
         ys[cr] += 1
-
-    y_plot = [0] * frame_length
-    ax.plot(xs, ys=y_plot, zs=ys, color='darkred')
+    """
+    ax.plot(xs, ys, color='darkred')
 
     ax.set_xlabel('time')
-    ax.set_ylabel('Y')
-    ax.set_zlabel('Z')
 
     plt.title('%d file' % file_number)
+    plt.text(60, 3, r'upper: Prediction, lower: GT')
     plt.savefig('%d file' % file_number)
 
 
@@ -358,6 +333,9 @@ def random_sampling_negative_(negative_sample):
     return random.shuffle(negative_sample)
 
 
+########################################################################
+#                   make ground truth using xml file                   #
+########################################################################
 def read_ground_truth_(file_number):
     # read ground truth using xml parser
 
@@ -377,42 +355,30 @@ def read_ground_truth_(file_number):
     return ground_truth_list
 
 
-def overlap_window_(window_size_, predict_result_):
+########################################################################
+#                  make ground truth using text file                   #
+########################################################################
+def read_ground_truth_using_text(filename):
+    f = open(filename, 'r')
+    lines = f.readlines()
 
-    result_dict = {}
-    result_range_dict = {}
-    for key in predict_result_.keys():
-        result_dict[key] = []
-        result_range_dict[key] = []
-        size = len(predict_result_[key])
-        for index in range(0, size):
+    for line in lines:
+        split_line = line.split(" ")
+        file_number = int(split_line[0])
+        start = int(split_line[1])
+        end = int(split_line[2])
+        frame_length = frame[files.index(file_number)] + 1
 
-            true_label_num = 0
-            false_label_num = 0
+        ground_truth_dict[file_number] = [False] * frame_length
+        for index in range(start, end+1):
+            ground_truth_dict[file_number][index] = True
 
-            if window_size_ <= index <= size-window_size_-1:
-                start = index - window_size_
-                end = index + window_size_+1
-                for i in range(start, end):
-
-                    if predict_result_[key][i] == true_class_label_number:
-                        true_label_num += 1
-
-                    else:
-                        false_label_num += 1
-
-            if true_label_num == false_label_num:
-                result_dict[key].append(predict_result_[key][index])
-
-            elif true_label_num > false_label_num:
-                result_dict[key].append(True)
-
-            else:
-                result_dict[key].append(False)
-
-    return result_dict
+    f.close()
 
 
+########################################################################
+#                 overlap window on detection result                   #
+########################################################################
 def overlap_window_all_cover(window_size_, predict_result_):
     result_dict = {}
     result_range_dict = {}
@@ -437,6 +403,9 @@ def overlap_window_all_cover(window_size_, predict_result_):
     return result_dict
 
 
+########################################################################
+#                calculate positive sample frame range                 #
+########################################################################
 def check_positive_range(_dictionary):
     result = {}
     cur_state = False
@@ -516,12 +485,14 @@ def calculate_evaluation_(_detect_result_dict, _ground_truth_dict):
     print ("Recall:", recall)
     print ("Precision:", precision)
 
+    return _detect_result_range
+
 
 def main():
     print('start')
     key_point = []
     pose_class = []
-
+    read_ground_truth_using_text("C:\Users\JM\Desktop\Data\ETRIrelated\pose classification\class1macro.txt")
 
 ########################################################################
 #                     import data to python list                       #
@@ -529,7 +500,7 @@ def main():
     for data in files:
         index_ = files.index(data)
         tmp_key_point, tmp_pose_class, tmp_positive, tmp_negative = import_data_(0, frame[index_], index_)
-        ground_truth_dict[data] = read_ground_truth_(data)
+        # ground_truth_dict[data] = read_ground_truth_(data)
         if i == 0:
             key_point = tmp_key_point
             pose_class = tmp_pose_class
@@ -593,8 +564,8 @@ def main():
         predict_class = support_vector_machine_classifier_(train_data, train_class, test_data)
         check_classified_result_(predict_class, test_class, test_index, true_class_num)
 
-    predict_dict = overlap_window_all_cover(60, frame_result_dict)
-    calculate_evaluation_(predict_dict, ground_truth_dict)
+    predict_dict = overlap_window_all_cover(20, frame_result_dict)
+    predict_range = calculate_evaluation_(predict_dict, ground_truth_dict)
 
 ########################################################################
 #                      make result movie and graph                     #
@@ -604,8 +575,10 @@ def main():
     for key in predict_positive_dict.keys():
         # check_true_positive_in_frame_(key, true_positive_dict[key], true_sample_dict[key])
         frame_length = frame[files.index(key)]
-        visualize_classification_result_(frame_length, predict_positive_dict[key].keys(),
-                                         key, true_sample_dict[key].keys())
+        # predict_dict[key].keys()
+        # predict_range[key]
+        visualize_classification_result_(frame_length, ground_truth_dict[key],
+                                         key, predict_range[key])
 
 
 if __name__ == '__main__':

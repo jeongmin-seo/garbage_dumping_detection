@@ -1,9 +1,9 @@
 import json
-from sklearn.model_selection import StratifiedKFold
 import cv2
 import matplotlib.pyplot as plt
 import numpy as np
 from xml.etree.ElementTree import parse
+from sklearn.model_selection import KFold
 
 files = [5, 15, 17, 18, 28,
          31, 41, 42, 58, 100,
@@ -25,9 +25,6 @@ frame = [703, 319, 278, 224, 755,
 true_class_label_number = 1  # change true class label number
 file_info = []
 
-# true_positive_frame = {}
-# true_sample_frame={}
-
 # graph related
 true_sample_dict = {}
 true_positive_dict = {}
@@ -39,16 +36,36 @@ ground_truth_dict = {}
 gt_and_detect_result = {}
 
 # initialize global variance
+# train_list = range(4, 35)
+# test_list = range(0, 4)
 """
-for i in files:
-    true_positive_dict[i] = {}
-    predict_positive_dict[i] = {}
-    true_sample_dict[i] = {}
-    frame_result_dict[i] = []
-    ground_truth_dict[i] = []
+[0,1,2,3,4,
+              5,6,7,8,9,
+              10,11,12,13,14,
+              15,16,17,18,19,
+              20,21,22,23,24,
+              25,26,27,28,29,
+              30,31,32,33,34]
 """
-train_list = range(0, 23)
-test_list = range(23,35)
+
+train_list = []
+test_list = []
+
+y = np.array(range(len(files)))
+kf = KFold(n_splits=10, random_state=True, shuffle=True)
+n = 0
+for train_index, test_index in kf.split(y):
+
+    train_list.append([])
+    for index in train_index:
+        train_list[n].append(index)
+
+    test_list.append([])
+    for index in test_index:
+        test_list[n].append(index)
+
+    n += 1
+
 
 for i in test_list:
     true_positive_dict[files[i]] = {}
@@ -82,7 +99,7 @@ def import_train_data_(start_num, end_num, index):
 
     while file_number <= end_num:
         pose_file = "C:\Users\JM\Desktop\Data\ETRIrelated\jsonfile_class%d\%03d\%03d_%012d_keypoints.json" \
-                   % (true_class_label_number, file_index, file_index, file_number)
+                    % (true_class_label_number, file_index, file_index, file_number)
 
         dict_pose = read_pose_(pose_file)  # dict_pose = {}
         people = dict_pose['people']
@@ -93,8 +110,8 @@ def import_train_data_(start_num, end_num, index):
 
         for pose_list in enumerate(people):
             if pose_list[1]['pose_keypoints'][29] != 0 and pose_list[1]['pose_keypoints'][32] != 0 and \
-                    pose_list[1]['pose_keypoints'][38] != 0 and pose_list[1]['pose_keypoints'][41] != 0 and \
-                    pose_list[1]['pose_keypoints'][5] != 0:
+                            pose_list[1]['pose_keypoints'][38] != 0 and pose_list[1]['pose_keypoints'][41] != 0 and \
+                            pose_list[1]['pose_keypoints'][5] != 0:
 
                 if len(pose_list[1]['pose_keypoints']) == 54:
                     negative_sample.append(pose_list[1]['pose_keypoints'])
@@ -123,7 +140,7 @@ def import_test_data_(start_num, end_num, index):
 
     while file_number <= end_num:
         pose_file = "C:\Users\JM\Desktop\Data\ETRIrelated\jsonfile_class%d\%03d\%03d_%012d_keypoints.json" \
-                   % (true_class_label_number, file_index, file_index, file_number)
+                    % (true_class_label_number, file_index, file_index, file_number)
 
         frame_result_dict[file_index].append(False)  # evaluation related
 
@@ -136,8 +153,8 @@ def import_test_data_(start_num, end_num, index):
 
         for pose_list in enumerate(people):
             if pose_list[1]['pose_keypoints'][29] != 0 and pose_list[1]['pose_keypoints'][32] != 0 and \
-                    pose_list[1]['pose_keypoints'][38] != 0 and pose_list[1]['pose_keypoints'][41] != 0 and \
-                    pose_list[1]['pose_keypoints'][5] != 0:
+                            pose_list[1]['pose_keypoints'][38] != 0 and pose_list[1]['pose_keypoints'][41] != 0 and \
+                            pose_list[1]['pose_keypoints'][5] != 0:
 
                 if len(pose_list[1]['pose_keypoints']) == 54:
                     negative_sample.append(pose_list[1]['pose_keypoints'])
@@ -155,7 +172,6 @@ def import_test_data_(start_num, end_num, index):
 
                 pose_key_points.append(pose_list[1]['pose_keypoints'])
                 file_info.append([file_index, file_number, pose_list[0]])
-
         file_number += 1
 
     return pose_key_points, y, positive_sample, negative_sample
@@ -173,8 +189,8 @@ def normalize_pose_(pose_data):
         base_index = 0
 
         while base_index < 18:
-            pose[base_index*3] -= neck_x
-            pose[base_index*3+1] -= neck_y
+            pose[base_index * 3] -= neck_x
+            pose[base_index * 3 + 1] -= neck_y
             base_index += 1
 
     return norm_pose_data
@@ -196,8 +212,8 @@ def scaling_data_(pose_data):
         dist = right_dist if right_dist > light_dist else light_dist
 
         while base_index < 18:
-            pose[base_index*3] /= dist
-            pose[base_index*3+1] /= dist
+            pose[base_index * 3] /= dist
+            pose[base_index * 3 + 1] /= dist
             base_index += 1
 
     return scaling_pose_data
@@ -210,7 +226,8 @@ def check_true_positive_in_frame_(file_num, gt_dict, tp_dict):
     file_path = "D:/etri_tool/CPMresult/videoresult/%03dresult.avi" % file_num
 
     cap = cv2.VideoCapture(file_path)
-    fps, width, height = cap.get(cv2.CAP_PROP_FPS), cap.get(cv2.CAP_PROP_FRAME_WIDTH), cap.get(cv2.CAP_PROP_FRAME_HEIGHT)
+    fps, width, height = cap.get(cv2.CAP_PROP_FPS), cap.get(cv2.CAP_PROP_FRAME_WIDTH), cap.get(
+        cv2.CAP_PROP_FRAME_HEIGHT)
     output = "%03d_check_positive.avi" % file_num
 
     fourcc = cv2.VideoWriter_fourcc('M', 'J', 'P', 'G')
@@ -247,33 +264,14 @@ def check_true_positive_in_frame_(file_num, gt_dict, tp_dict):
         if frame_num in tp_dict.keys():
             cv2.circle(frame, (int(width) - 200, int(height) - 100), 40, (255, 255, 255), 40)
 
-            if frame_num not in gt_dict.keys():
-                for i in tp_dict[frame_num]:
-                    temp = people[i]['pose_keypoints']
-                    temp_x = [temp[x * 3] for x in range(0, 18)]
-                    temp_y = [temp[y * 3 + 1] for y in range(0, 18)]
-                    cv2.rectangle(frame,
-                                  (int(min(filter(lambda x: x > 0, temp_x))), int(min(filter(lambda x: x > 0, temp_y)))),
-                                  (int(max(temp_x)), int(max(temp_y))),
-                                  (0, 0, 255), thickness=3)
-
-            """
-            # add new code
-            pose_file = "C:\Users\JM\Desktop\Data\ETRIrelated\jsonfile_class%d\%03d\%03d_%012d_keypoints.json" \
-                        % (true_class_label_number, file_num, file_num, frame_num)
-
-            dict_pose = read_pose_(pose_file)  # dict_pose={}
-            people = dict_pose['people']
-
-            for i in posi_dict[frame_num]:
+            for i in tp_dict[frame_num]:
                 temp = people[i]['pose_keypoints']
-                temp_x = [temp[x*3] for x in range(0, 18)]
-                temp_y = [temp[y*3 + 1] for y in range(0, 18)]
+                temp_x = [temp[x * 3] for x in range(0, 18)]
+                temp_y = [temp[y * 3 + 1] for y in range(0, 18)]
                 cv2.rectangle(frame,
-                              (int(min(filter(lambda x: x > 0, temp_x))+5), int(min(filter(lambda x: x > 0, temp_y))+5)),
-                              (int(max(temp_x)+5), int(max(temp_y)+5)),
+                              (int(min(filter(lambda x: x > 0, temp_x)))-5, int(min(filter(lambda x: x > 0, temp_y)))-5),
+                              (int(max(temp_x))+5, int(max(temp_y))+5),
                               (0, 0, 255), thickness=3)
-            """
 
         # frame_name = "%03d_check_positive_%06d.jpg" % (file_num, frame_num)
         # cv2.imwrite(frame_name, frame)
@@ -326,9 +324,10 @@ def check_classified_result_(predict_class, test_class, test_index):
             else:  # elif test_class[index] == true_class_label_number:
                 false_negative += 1
 
-    print("precision: ",float(true_positive) / float(true_positive + false_positive))
+    print("precision: ", float(true_positive) / float(true_positive + false_positive))
     print("recall: ", float(true_positive) / float(true_positive + false_negative))
-    print("accuracy: ", float(true_positive + true_negative) / float(true_positive + false_positive + false_negative + true_negative))
+    print("accuracy: ",
+          float(true_positive + true_negative) / float(true_positive + false_positive + false_negative + true_negative))
 
 
 def check_classified_result_using_video(predict_class, test_class):
@@ -340,20 +339,23 @@ def check_classified_result_using_video(predict_class, test_class):
     for index in range(len(file_info)):
         if predict_class[index] == true_class_label_number:
 
-            video_idx = file_info[i][0]
-            frame_idx = file_info[i][1]
+            video_idx = file_info[index][0]
+            frame_idx = file_info[index][1]
 
+            # Draw graph related
             frame_result_dict[video_idx][frame_idx] = True
 
+            # Save predict positive result
             if frame_idx not in predict_positive_dict[video_idx]:
                 predict_positive_dict[video_idx][frame_idx] = []
-            predict_positive_dict[video_idx][frame_idx].append(file_info[i][2])
+            predict_positive_dict[video_idx][frame_idx].append(file_info[index][2])
 
             if test_class[index] == 0:
                 false_positive += 1
 
             else:
                 true_positive += 1
+                print(video_idx, frame_idx, file_info[index][2])
 
         elif predict_class[index] == 0:
             if test_class[index] == 0:
@@ -361,11 +363,16 @@ def check_classified_result_using_video(predict_class, test_class):
 
             else:  # elif test_class[index] == true_class_label_number:
                 false_negative += 1
+    """
+    precision = float(true_positive) / float(true_positive + false_positive)
+    recall = float(true_positive) / float(true_positive + false_negative)
+    accuracy = float(true_positive + true_negative) / \
+               float(true_positive + false_positive + false_negative + true_negative)
 
-    print("precision: ", float(true_positive) / float(true_positive + false_positive))
-    print("recall: ", float(true_positive) / float(true_positive + false_negative))
-    print("accuracy: ", float(true_positive + true_negative) / float(
-        true_positive + false_positive + false_negative + true_negative))
+    print("precision: ", precision)
+    print("recall: ", recall)
+    print("accuracy: ", accuracy)
+    """
 
 
 ########################################################################
@@ -412,7 +419,7 @@ def visualize_classification_result_(frame_length, _ground_truth_list, file_numb
 
     num = 0
     for _list in _predict_list:
-        for cr in range(_list[0], _list[1]+1):
+        for cr in range(_list[0], _list[1] + 1):
             ys[cr] += 1
             num += 1
             if num == 1:
@@ -475,7 +482,7 @@ def read_ground_truth_using_text(filename):
         frame_length = frame[files.index(file_number)] + 1
 
         ground_truth_dict[file_number] = [False] * frame_length
-        for index in range(start, end+1):
+        for index in range(start, end + 1):
             ground_truth_dict[file_number][index] = True
 
     f.close()
@@ -489,7 +496,7 @@ def overlap_window_all_cover(window_size_, predict_result_):
     result_range_dict = {}
     for key in predict_result_.keys():
         size = len(predict_result_[key])
-        result_dict[key] = [False]*size
+        result_dict[key] = [False] * size
         result_range_dict[key] = []
 
         index = 0
@@ -542,7 +549,7 @@ def detect_base_calculate_result_(_detect_range_list, _gt_and_detect_list):
         if not detect_range:
             continue
 
-        denominator = float(detect_range[1] - detect_range[0]+1)
+        denominator = float(detect_range[1] - detect_range[0] + 1)
         rate = float(_gt_and_detect_list[detect_range[0]: detect_range[1]].count(True)) / denominator
         if rate < 0.5:
             false_posi += 1
@@ -584,7 +591,7 @@ def calculate_evaluation_(_detect_result_dict, _ground_truth_dict):
         true_posi += tp
         false_nega += fn
 
-    recall = float(true_posi) / float(false_posi + false_nega)
+    recall = float(true_posi) / float(true_posi + false_nega)
     precision = float(true_posi) / float(true_posi + false_posi)
 
     print ("Recall:", recall)
@@ -595,30 +602,17 @@ def calculate_evaluation_(_detect_result_dict, _ground_truth_dict):
 
 def main():
     print('start')
-    key_point = []
-    pose_class = []
     read_ground_truth_using_text("C:\Users\JM\Desktop\Data\ETRIrelated\pose classification\class1macro.txt")
 
 ########################################################################
 #                     import data to python list                       #
 ########################################################################
-    """
-    for data in files:
-        index_ = files.index(data)
-        tmp_key_point, tmp_pose_class, tmp_positive, tmp_negative = import_data_(0, frame[index_], index_)
-        # ground_truth_dict[data] = read_ground_truth_(data)
-        if i == 0:
-            key_point = tmp_key_point
-            pose_class = tmp_pose_class
-
-        else:
-            key_point.extend(tmp_key_point)
-            pose_class.extend(tmp_pose_class)
-    """
     test_keypoint = []
     test_class = []
     train_keypoint = []
     train_class = []
+
+    # train data import
     for i in train_list:
         tmp_key_point, tmp_pose_class, tmp_positive, tmp_negative = import_train_data_(0, frame[i], i)
         if i == 0:
@@ -629,6 +623,7 @@ def main():
             train_keypoint.extend(tmp_key_point)
             train_class.extend(tmp_pose_class)
 
+    # test data import
     for i in test_list:
         tmp_key_point, tmp_pose_class, tmp_positive, tmp_negative = import_test_data_(0, frame[i], i)
         if i == 0:
@@ -639,15 +634,9 @@ def main():
             test_keypoint.extend(tmp_key_point)
             test_class.extend(tmp_pose_class)
 
-
 ########################################################################
 #                      normalize & scaling data                        #
 ########################################################################
-    """
-    norm_key_point = normalize_pose_(key_point)
-    scaling_key_point = scaling_data_(norm_key_point)
-    """
-
     norm_train_keypoint = normalize_pose_(train_keypoint)
     norm_test_keypoint = normalize_pose_(test_keypoint)
     scaling_train_keypoint = scaling_data_(norm_train_keypoint)
@@ -656,19 +645,6 @@ def main():
 ########################################################################
 #               extract body coordinate except confidence              #
 ########################################################################
-    """
-    coord_key_point = []
-    for point in scaling_key_point:
-        coord_key_point.append([])
-        for index in range(0, 18):
-            coord_key_point[len(coord_key_point) - 1].append(point[index * 3])
-            coord_key_point[len(coord_key_point) - 1].append(point[index * 3 + 1])
-            
-    true = 0
-    for pose in pose_class:
-        if pose == true_class_label_number:
-            true += 1
-    """
     coord_train_keypoint = []
     for point in scaling_train_keypoint:
         coord_train_keypoint.append([])
@@ -683,40 +659,14 @@ def main():
             coord_test_keypoint[len(coord_test_keypoint) - 1].append(point[index * 3])
             coord_test_keypoint[len(coord_test_keypoint) - 1].append(point[index * 3 + 1])
 
-    print("k-fold")
-
 
 ########################################################################
 #       10-fold validation and split training & test data set          #
 ########################################################################
-    """
-    # 10fold & shuffle = True
-    skf = StratifiedKFold(n_splits=10, shuffle=True)
 
-    print("all", len(coord_key_point))
-    # split train test
-    for train_index, test_index in skf.split(coord_key_point, pose_class):
-        train_data = []
-        test_data = []
-        train_class = []
-        test_class = []
-        true_class_num = 0
-        for index in train_index:
-            train_data.append(coord_key_point[index])
-            train_class.append(pose_class[index])
-        for index in test_index:
-            test_data.append(coord_key_point[index])
-            test_class.append(pose_class[index])
-            if pose_class[index] == true_class_label_number:
-                true_class_num += 1
-    """
 ########################################################################
 #     predict test class & calculate Precision Recall and Accuracy     #
 ########################################################################
-    """
-        predict_class = support_vector_machine_classifier_(train_data, train_class, test_data)
-        check_classified_result_(predict_class, test_class, test_index, true_class_num)
-    """
 
     predict_class = support_vector_machine_classifier_(coord_train_keypoint, train_class, coord_test_keypoint)
     check_classified_result_using_video(predict_class, test_class)
@@ -730,16 +680,15 @@ def main():
 
     print('make moving picture')
     for key in predict_positive_dict.keys():
-        # check_true_positive_in_frame_(key, true_positive_dict[key], true_sample_dict[key])
         frame_length = frame[files.index(key)]
-        # predict_dict[key].keys()
-        # predict_range[key]
         visualize_classification_result_(frame_length, ground_truth_dict[key],
                                          key, predict_range[key],
                                          frame_result_dict[key])
-        # check_true_positive_in_frame_(key, true_positive_dict[key], predict_positive_dict[key])
         check_true_positive_in_frame_(key, true_sample_dict[key], predict_positive_dict[key])
 
 
 if __name__ == '__main__':
     main()
+
+
+

@@ -35,49 +35,12 @@ frame_result_dict = {}
 ground_truth_dict = {}
 gt_and_detect_result = {}
 
-# initialize global variance
-# train_list = range(4, 35)
-# test_list = range(0, 4)
-"""
-[0,1,2,3,4,
-              5,6,7,8,9,
-              10,11,12,13,14,
-              15,16,17,18,19,
-              20,21,22,23,24,
-              25,26,27,28,29,
-              30,31,32,33,34]
-"""
-
-train_list = []
-test_list = []
-
-y = np.array(range(len(files)))
-kf = KFold(n_splits=10, random_state=True, shuffle=True)
-n = 0
-for train_index, test_index in kf.split(y):
-
-    train_list.append([])
-    for index in train_index:
-        train_list[n].append(index)
-
-    test_list.append([])
-    for index in test_index:
-        test_list[n].append(index)
-
-    n += 1
-
-
-for i in test_list:
-    true_positive_dict[files[i]] = {}
-    predict_positive_dict[files[i]] = {}
-    true_sample_dict[files[i]] = {}
-    frame_result_dict[files[i]] = []
-    ground_truth_dict[files[i]] = []
-
 
 ########################################################################
-#                           read json file                             #
+#                         file import related                          #
 ########################################################################
+
+# read json file
 def read_pose_(filename):
     f = open(filename, 'r')
     js = json.loads(f.read())
@@ -86,9 +49,7 @@ def read_pose_(filename):
     return js
 
 
-########################################################################
-#                read json and write python list data                  #
-########################################################################
+#
 def import_train_data_(start_num, end_num, index):
     pose_key_points = []
     y = []
@@ -175,6 +136,25 @@ def import_test_data_(start_num, end_num, index):
         file_number += 1
 
     return pose_key_points, y, positive_sample, negative_sample
+
+
+# make ground truth using text file
+def read_ground_truth_using_text(filename):
+    f = open(filename, 'r')
+    lines = f.readlines()
+
+    for line in lines:
+        split_line = line.split(" ")
+        file_number = int(split_line[0])
+        start = int(split_line[1])
+        end = int(split_line[2])
+        frame_length = frame[files.index(file_number)] + 1
+
+        ground_truth_dict[file_number] = [False] * frame_length
+        for index in range(start, end + 1):
+            ground_truth_dict[file_number][index] = True
+
+    f.close()
 
 
 ########################################################################
@@ -437,60 +417,10 @@ def visualize_classification_result_(frame_length, _ground_truth_list, file_numb
 
 
 ########################################################################
-#                         Sampling the data                            #
+#                     Calc Overlap Window related                      #
 ########################################################################
-def random_sampling_negative_(negative_sample):
-    import random
 
-    return random.shuffle(negative_sample)
-
-
-########################################################################
-#                   make ground truth using xml file                   #
-########################################################################
-def read_ground_truth_(file_number):
-    # read ground truth using xml parser
-
-    ground_truth_list = [False] * frame[files.index(file_number)]
-
-    file_name = "C:\Users\JM\Desktop\ETRI\ETRIxml\%03d.xml" % file_number
-    tree = parse(file_name)
-    verbs = tree.getroot().find("Verbs").findall("Verb")
-
-    for verb in verbs:
-        tracks = verb.find("Tracks").findall("Track")
-        for track in tracks:
-            ground_truth_list[int(track.get("frameNum"))] = True
-
-    ground_truth_dict[file_number] = ground_truth_list
-
-    return ground_truth_list
-
-
-########################################################################
-#                  make ground truth using text file                   #
-########################################################################
-def read_ground_truth_using_text(filename):
-    f = open(filename, 'r')
-    lines = f.readlines()
-
-    for line in lines:
-        split_line = line.split(" ")
-        file_number = int(split_line[0])
-        start = int(split_line[1])
-        end = int(split_line[2])
-        frame_length = frame[files.index(file_number)] + 1
-
-        ground_truth_dict[file_number] = [False] * frame_length
-        for index in range(start, end + 1):
-            ground_truth_dict[file_number][index] = True
-
-    f.close()
-
-
-########################################################################
-#                 overlap window on detection result                   #
-########################################################################
+# cover overlap window
 def overlap_window_all_cover(window_size_, predict_result_):
     result_dict = {}
     result_range_dict = {}
@@ -515,9 +445,7 @@ def overlap_window_all_cover(window_size_, predict_result_):
     return result_dict
 
 
-########################################################################
-#                calculate positive sample frame range                 #
-########################################################################
+# calculate positive sample frame range
 def check_positive_range(_dictionary):
     result = {}
     cur_state = False
@@ -542,6 +470,7 @@ def check_positive_range(_dictionary):
     return result
 
 
+# detect criteria calc result
 def detect_base_calculate_result_(_detect_range_list, _gt_and_detect_list):
     false_posi = 0
     for detect_range in _detect_range_list:
@@ -557,6 +486,7 @@ def detect_base_calculate_result_(_detect_range_list, _gt_and_detect_list):
     return false_posi
 
 
+# ground truth criteria calc result
 def gt_base_calculate_result_(_gt_range_list, _gt_and_detect_list):
     true_posi = 0
     false_nega = 0
@@ -576,6 +506,7 @@ def gt_base_calculate_result_(_gt_range_list, _gt_and_detect_list):
     return true_posi, false_nega
 
 
+# calc recall & precision
 def calculate_evaluation_(_detect_result_dict, _ground_truth_dict):
     false_posi = 0
     true_posi = 0
@@ -600,95 +531,95 @@ def calculate_evaluation_(_detect_result_dict, _ground_truth_dict):
     return _detect_result_range
 
 
-def main():
-    print('start')
-    read_ground_truth_using_text("C:\Users\JM\Desktop\Data\ETRIrelated\pose classification\class1macro.txt")
-
-########################################################################
-#                     import data to python list                       #
-########################################################################
-    test_keypoint = []
-    test_class = []
-    train_keypoint = []
-    train_class = []
-
-    # train data import
-    for i in train_list:
-        tmp_key_point, tmp_pose_class, tmp_positive, tmp_negative = import_train_data_(0, frame[i], i)
-        if i == 0:
-            train_keypoint = tmp_key_point
-            train_class = tmp_pose_class
-
-        else:
-            train_keypoint.extend(tmp_key_point)
-            train_class.extend(tmp_pose_class)
-
-    # test data import
-    for i in test_list:
-        tmp_key_point, tmp_pose_class, tmp_positive, tmp_negative = import_test_data_(0, frame[i], i)
-        if i == 0:
-            test_keypoint = tmp_key_point
-            test_class = tmp_pose_class
-
-        else:
-            test_keypoint.extend(tmp_key_point)
-            test_class.extend(tmp_pose_class)
-
-########################################################################
-#                      normalize & scaling data                        #
-########################################################################
-    norm_train_keypoint = normalize_pose_(train_keypoint)
-    norm_test_keypoint = normalize_pose_(test_keypoint)
-    scaling_train_keypoint = scaling_data_(norm_train_keypoint)
-    scaling_test_keypoint = scaling_data_(norm_test_keypoint)
-
-########################################################################
-#               extract body coordinate except confidence              #
-########################################################################
-    coord_train_keypoint = []
-    for point in scaling_train_keypoint:
-        coord_train_keypoint.append([])
-        for index in range(0, 18):
-            coord_train_keypoint[len(coord_train_keypoint) - 1].append(point[index * 3])
-            coord_train_keypoint[len(coord_train_keypoint) - 1].append(point[index * 3 + 1])
-
-    coord_test_keypoint = []
-    for point in scaling_test_keypoint:
-        coord_test_keypoint.append([])
-        for index in range(0, 18):
-            coord_test_keypoint[len(coord_test_keypoint) - 1].append(point[index * 3])
-            coord_test_keypoint[len(coord_test_keypoint) - 1].append(point[index * 3 + 1])
-
-
-########################################################################
-#       10-fold validation and split training & test data set          #
-########################################################################
-
-########################################################################
-#     predict test class & calculate Precision Recall and Accuracy     #
-########################################################################
-
-    predict_class = support_vector_machine_classifier_(coord_train_keypoint, train_class, coord_test_keypoint)
-    check_classified_result_using_video(predict_class, test_class)
-
-    predict_dict = overlap_window_all_cover(30, frame_result_dict)
-    predict_range = calculate_evaluation_(predict_dict, ground_truth_dict)
-
-########################################################################
-#                      make result movie and graph                     #
-########################################################################
-
-    print('make moving picture')
-    for key in predict_positive_dict.keys():
-        frame_length = frame[files.index(key)]
-        visualize_classification_result_(frame_length, ground_truth_dict[key],
-                                         key, predict_range[key],
-                                         frame_result_dict[key])
-        check_true_positive_in_frame_(key, true_sample_dict[key], predict_positive_dict[key])
-
-
 if __name__ == '__main__':
-    main()
 
+    print('start')
 
+    X = np.array(range(len(files)))
+    kf = KFold(n_splits=10, random_state=True, shuffle=True)
+    for train_index, test_index in kf.split(X):
 
+        test_list = test_index.tolist()
+        train_list = train_index.tolist()
+        for i in test_list:
+            true_positive_dict[files[i]] = {}
+            predict_positive_dict[files[i]] = {}
+            true_sample_dict[files[i]] = {}
+            frame_result_dict[files[i]] = []
+            ground_truth_dict[files[i]] = []
+        read_ground_truth_using_text("C:\Users\JM\Desktop\Data\ETRIrelated\pose classification\class1macro.txt")
+
+        test_keypoint = []
+        test_class = []
+        train_keypoint = []
+        train_class = []
+
+        # train data import
+        for idx in train_list:
+            tmp_key_point, tmp_pose_class, tmp_positive, tmp_negative = import_train_data_(0, frame[idx], idx)
+            if train_list.index(idx) == 0:
+                train_keypoint = tmp_key_point
+                train_class = tmp_pose_class
+
+            else:
+                train_keypoint.extend(tmp_key_point)
+                train_class.extend(tmp_pose_class)
+
+        # test data import
+        for idx in test_list:
+            tmp_key_point, tmp_pose_class, tmp_positive, tmp_negative = import_test_data_(0, frame[idx], idx)
+            if train_list.index(idx) == 0:
+                test_keypoint = tmp_key_point
+                test_class = tmp_pose_class
+
+            else:
+                test_keypoint.extend(tmp_key_point)
+                test_class.extend(tmp_pose_class)
+
+        ########################################################################
+        #                      normalize & scaling data                        #
+        ########################################################################
+        norm_train_keypoint = normalize_pose_(train_keypoint)
+        norm_test_keypoint = normalize_pose_(test_keypoint)
+        scaling_train_keypoint = scaling_data_(norm_train_keypoint)
+        scaling_test_keypoint = scaling_data_(norm_test_keypoint)
+
+        ########################################################################
+        #               extract body coordinate except confidence              #
+        ########################################################################
+        coord_train_keypoint = []
+        for point in scaling_train_keypoint:
+            coord_train_keypoint.append([])
+            for index in range(0, 18):
+                coord_train_keypoint[len(coord_train_keypoint) - 1].append(point[index * 3])
+                coord_train_keypoint[len(coord_train_keypoint) - 1].append(point[index * 3 + 1])
+
+        coord_test_keypoint = []
+        for point in scaling_test_keypoint:
+            coord_test_keypoint.append([])
+            for index in range(0, 18):
+                coord_test_keypoint[len(coord_test_keypoint) - 1].append(point[index * 3])
+                coord_test_keypoint[len(coord_test_keypoint) - 1].append(point[index * 3 + 1])
+
+        ########################################################################
+        #     predict test class & calculate Precision Recall and Accuracy     #
+        ########################################################################
+
+        predict_class = support_vector_machine_classifier_(coord_train_keypoint, train_class,
+                                                           coord_test_keypoint)
+        check_classified_result_using_video(predict_class, test_class)
+
+        predict_dict = overlap_window_all_cover(30, frame_result_dict)
+        predict_range = calculate_evaluation_(predict_dict, ground_truth_dict)
+
+        ########################################################################
+        #                      make result movie and graph                     #
+        ########################################################################
+
+        print('make moving picture')
+        for key in predict_positive_dict.keys():
+            frame_length = frame[files.index(key)]
+            visualize_classification_result_(frame_length, ground_truth_dict[key],
+                                             key, predict_range[key],
+                                             frame_result_dict[key])
+            check_true_positive_in_frame_(key, true_sample_dict[key], predict_positive_dict[key])

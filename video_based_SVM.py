@@ -23,7 +23,6 @@ frame = [703, 319, 278, 224, 755,
          715, 1194, 176, 1028, 252]
 
 true_class_label_number = 1  # change true class label number
-file_info = []
 
 # graph related
 true_sample_dict = {}
@@ -202,7 +201,7 @@ def scaling_data_(pose_data):
 ########################################################################
 #                 make the true positive result movie                  #
 ########################################################################
-def check_true_positive_in_frame_(file_num, gt_dict, tp_dict):
+def check_true_positive_in_frame_(file_num, _gt_dict, _tp_dict, _window_list):
     file_path = "D:/etri_tool/CPMresult/videoresult/%03dresult.avi" % file_num
 
     cap = cv2.VideoCapture(file_path)
@@ -231,8 +230,8 @@ def check_true_positive_in_frame_(file_num, gt_dict, tp_dict):
         dict_pose = read_pose_(pose_file)  # dict_pose={}
         people = dict_pose['people']
 
-        if frame_num in gt_dict.keys():
-            for i in gt_dict[frame_num]:
+        if frame_num in _gt_dict.keys():
+            for i in _gt_dict[frame_num]:
                 temp = people[i]['pose_keypoints']
                 temp_x = [temp[x * 3] for x in range(0, 18)]
                 temp_y = [temp[y * 3 + 1] for y in range(0, 18)]
@@ -241,10 +240,8 @@ def check_true_positive_in_frame_(file_num, gt_dict, tp_dict):
                               (int(max(temp_x)), int(max(temp_y))),
                               (255, 0, 0), thickness=3)
 
-        if frame_num in tp_dict.keys():
-            cv2.circle(frame, (int(width) - 200, int(height) - 100), 40, (255, 255, 255), 40)
-
-            for i in tp_dict[frame_num]:
+        if frame_num in _tp_dict.keys():
+            for i in _tp_dict[frame_num]:
                 temp = people[i]['pose_keypoints']
                 temp_x = [temp[x * 3] for x in range(0, 18)]
                 temp_y = [temp[y * 3 + 1] for y in range(0, 18)]
@@ -252,6 +249,9 @@ def check_true_positive_in_frame_(file_num, gt_dict, tp_dict):
                               (int(min(filter(lambda x: x > 0, temp_x)))-5, int(min(filter(lambda x: x > 0, temp_y)))-5),
                               (int(max(temp_x))+5, int(max(temp_y))+5),
                               (0, 0, 255), thickness=3)
+
+        if _window_list[frame_num]:
+            cv2.circle(frame, (int(width) - 200, int(height) - 100), 40, (255, 255, 255), 40)
 
         # frame_name = "%03d_check_positive_%06d.jpg" % (file_num, frame_num)
         # cv2.imwrite(frame_name, frame)
@@ -335,7 +335,6 @@ def check_classified_result_using_video(predict_class, test_class):
 
             else:
                 true_positive += 1
-                print(video_idx, frame_idx, file_info[index][2])
 
         elif predict_class[index] == 0:
             if test_class[index] == 0:
@@ -531,6 +530,13 @@ def calculate_evaluation_(_detect_result_dict, _ground_truth_dict):
     return _detect_result_range
 
 
+def initialize_result_container_():
+    true_sample_dict.clear()
+    true_positive_dict.clear()
+    predict_positive_dict.clear()
+    frame_result_dict.clear()
+    ground_truth_dict.clear()
+
 if __name__ == '__main__':
 
     print('start')
@@ -539,9 +545,13 @@ if __name__ == '__main__':
     kf = KFold(n_splits=10, random_state=True, shuffle=True)
     for train_index, test_index in kf.split(X):
 
+        file_info = []
+        initialize_result_container_()
+
         test_list = test_index.tolist()
         train_list = train_index.tolist()
         for i in test_list:
+            print(files[i])
             true_positive_dict[files[i]] = {}
             predict_positive_dict[files[i]] = {}
             true_sample_dict[files[i]] = {}
@@ -568,7 +578,7 @@ if __name__ == '__main__':
         # test data import
         for idx in test_list:
             tmp_key_point, tmp_pose_class, tmp_positive, tmp_negative = import_test_data_(0, frame[idx], idx)
-            if train_list.index(idx) == 0:
+            if test_list.index(idx) == 0:
                 test_keypoint = tmp_key_point
                 test_class = tmp_pose_class
 
@@ -617,9 +627,10 @@ if __name__ == '__main__':
         ########################################################################
 
         print('make moving picture')
+        print(predict_positive_dict.keys())
         for key in predict_positive_dict.keys():
             frame_length = frame[files.index(key)]
             visualize_classification_result_(frame_length, ground_truth_dict[key],
                                              key, predict_range[key],
                                              frame_result_dict[key])
-            check_true_positive_in_frame_(key, true_sample_dict[key], predict_positive_dict[key])
+            check_true_positive_in_frame_(key, true_sample_dict[key], predict_positive_dict[key], predict_dict[key])

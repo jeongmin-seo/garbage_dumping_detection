@@ -198,6 +198,22 @@ def scaling_data_(pose_data):
     return scaling_pose_data
 
 
+def make_normal_vector(pose_data):
+    normal_vector = [pose for pose in pose_data]
+
+    for pose in normal_vector:
+        for base_index in range(18):
+            dist = (pose[base_index*3] ** 2 + pose[base_index*3+1] ** 2) ** 0.5
+
+            if dist == 0:
+                continue
+
+            pose[base_index*3] /= dist
+            pose[base_index*3 + 1] /= dist
+
+    return normal_vector
+
+
 ########################################################################
 #                 make the true positive result movie                  #
 ########################################################################
@@ -390,12 +406,16 @@ def visualize_classification_result_(frame_length, _ground_truth_list, file_numb
         if _ground_truth_list[i]:
             cs[i] += 1
 
+        if _predict_list[i]:
+            ys[i] += 1
+
     ax.plot(xs, cs, color='darkred')
     ax.set_title(" Ground Truth ")
 
     bx.plot(xs, ds, color='darkred')
     bx.set_title(" Prediction ")
 
+    """
     num = 0
     for _list in _predict_list:
         for cr in range(_list[0], _list[1] + 1):
@@ -404,6 +424,7 @@ def visualize_classification_result_(frame_length, _ground_truth_list, file_numb
             if num == 1:
                 cx.text(50, 30, i)
             continue
+    """
     cx.plot(xs, ys, color='darkred')
     cx.set_title(" Prediction overlap Window ")
 
@@ -591,8 +612,11 @@ if __name__ == '__main__':
         ########################################################################
         norm_train_keypoint = normalize_pose_(train_keypoint)
         norm_test_keypoint = normalize_pose_(test_keypoint)
-        scaling_train_keypoint = scaling_data_(norm_train_keypoint)
-        scaling_test_keypoint = scaling_data_(norm_test_keypoint)
+        scaling_train_keypoint = make_normal_vector(norm_train_keypoint)
+        scaling_test_keypoint = make_normal_vector(norm_test_keypoint)
+
+        # scaling_train_keypoint = scaling_data_(norm_train_keypoint)
+        # scaling_test_keypoint = scaling_data_(norm_test_keypoint)
 
         ########################################################################
         #               extract body coordinate except confidence              #
@@ -627,10 +651,13 @@ if __name__ == '__main__':
         ########################################################################
 
         print('make moving picture')
-        print(predict_positive_dict.keys())
+        # print(predict_positive_dict.keys())
         for key in predict_positive_dict.keys():
             frame_length = frame[files.index(key)]
             visualize_classification_result_(frame_length, ground_truth_dict[key],
-                                             key, predict_range[key],
+                                             key,
+                                             predict_dict[key],
                                              frame_result_dict[key])
             check_true_positive_in_frame_(key, true_sample_dict[key], predict_positive_dict[key], predict_dict[key])
+
+

@@ -203,6 +203,22 @@ def scaling_data_(pose_data):
     return scaling_pose_data
 
 
+def make_normal_vector(pose_data):
+    normal_vector = [pose for pose in pose_data]
+
+    for pose in normal_vector:
+        for base_index in range(18):
+            dist = (pose[base_index*3] ** 2 + pose[base_index*3+1] ** 2) ** 0.5
+
+            if dist == 0:
+                continue
+
+            pose[base_index*3] /= dist
+            pose[base_index*3 + 1] /= dist
+
+    return normal_vector
+
+
 ########################################################################
 #                 make the true positive result movie                  #
 ########################################################################
@@ -650,9 +666,12 @@ def main():
 
     norm_train_keypoint = normalize_pose_(train_keypoint)
     norm_test_keypoint = normalize_pose_(test_keypoint)
+    scaling_train_keypoint = make_normal_vector(norm_train_keypoint)
+    scaling_test_keypoint = make_normal_vector(norm_test_keypoint)
+    """
     scaling_train_keypoint = scaling_data_(norm_train_keypoint)
     scaling_test_keypoint = scaling_data_(norm_test_keypoint)
-
+    """
 ########################################################################
 #               extract body coordinate except confidence              #
 ########################################################################
@@ -738,7 +757,7 @@ def main():
                                          key, predict_range[key],
                                          frame_result_dict[key])
         # check_true_positive_in_frame_(key, true_positive_dict[key], predict_positive_dict[key])
-        check_true_positive_in_frame_(key, true_sample_dict[key], predict_positive_dict[key])
+        # check_true_positive_in_frame_(key, true_sample_dict[key], predict_positive_dict[key])
 
 
 if __name__ == '__main__':

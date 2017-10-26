@@ -254,7 +254,7 @@ def normalize_pose_(_pose_data):
 
     while base_index < 18:
         _pose_data[base_index*3] -= neck_x
-        _pose_data[base_index*3+1] -= neck_y
+        _pose_data[base_index*3+1] -= neck_y  # 목좌표로 좌표계 변환
         base_index += 1
 
     return _pose_data
@@ -269,12 +269,12 @@ def scaling_data_(_pose_data):
     right_knee, right_ankle = [_pose_data[27], _pose_data[28]], [_pose_data[30], _pose_data[31]]
     base_index = 0
 
-    right_dist = ((right_knee[0] - right_ankle[0]) ** 2 + (right_knee[1] - right_ankle[1]) ** 2) ** 0.5
-    light_dist = ((light_knee[0] - light_ankle[0]) ** 2 + (light_knee[1] - light_ankle[1]) ** 2) ** 0.5
-    dist = right_dist if right_dist > light_dist else light_dist
+    right_dist = ((right_knee[0] - right_ankle[0]) ** 2 + (right_knee[1] - right_ankle[1]) ** 2) ** 0.5  # 오른쪽 무릎부터 발목까지 거리
+    light_dist = ((light_knee[0] - light_ankle[0]) ** 2 + (light_knee[1] - light_ankle[1]) ** 2) ** 0.5  # 왼쪽 무릎부터 발목까지 거리
+    dist = right_dist if right_dist > light_dist else light_dist                                         # 오른쪽 왼쪽중 더 긴 거리 선택
 
     while base_index < 18:
-        _pose_data[base_index*3] /= dist
+        _pose_data[base_index*3] /= dist                                                                 # 선택된 거리를 1로 하는 좌표들로 변환
         _pose_data[base_index*3+1] /= dist
         base_index += 1
 

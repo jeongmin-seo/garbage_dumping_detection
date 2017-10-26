@@ -102,17 +102,16 @@ def make_macro_file_to_dict():
     return littering_info
 
 
-def labeling_text_file(_dict):
-    text_file_path = "C:\Users\JM\Desktop\Data\ETRIrelated\pose classification\json_xml_join_file"
+def labeling_text_file(_dict, _text_dir_path, _write_dir_path):
 
     for key in _dict.keys():
         file_name_check = "%06d.txt" % key
 
-        if file_name_check not in os.listdir(text_file_path):
+        if file_name_check not in os.listdir(text_dir_path):
             continue
 
-        text_path = "C:\Users\JM\Desktop\Data\ETRIrelated\pose classification\json_xml_join_file\%06d.txt" % key
-        write_path = "C:\Users\JM\Desktop\Data\ETRIrelated\pose classification\gt_json_xml\%06d.txt" % key
+        text_path = _text_dir_path + "\\%06d.txt" % key
+        write_path = _write_dir_path + "\\%06d.txt" % key
 
         f = open(text_path, 'r')
         g = open(write_path, 'w')
@@ -139,4 +138,6 @@ def labeling_text_file(_dict):
 if __name__ == '__main__':
     join_json_xml_file()
     dict = make_macro_file_to_dict()
-    labeling_text_file(dict)
+    text_dir_path = "C:\\Users\\JM\\Desktop\\Data\\ETRIrelated\\pose classification\\json_xml_join_file"
+    write_dir_path = "C:\\Users\\JM\\Desktop\\Data\\ETRIrelated\\pose classification\\gt_json_xml"
+    labeling_text_file(dict, text_dir_path, write_dir_path)

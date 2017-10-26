@@ -89,9 +89,10 @@ def make_preprocess_data(_xml_path, _json_path, _save_path, _using_macro=False):
                     data.append(attr['frameNum'])
 
                     norm_key_point = normalize_pose_(key_point)
+                    scaling_key_point = scaling_data_(norm_key_point)
                     for i in range(18):
-                        data.append(str(norm_key_point[i * 3]))
-                        data.append(str(norm_key_point[i * 3 + 1]))
+                        data.append(str(scaling_key_point[i * 3]))
+                        data.append(str(scaling_key_point[i * 3 + 1]))
                     data.append(str(label))
 
                     file_name = "%06d.txt" % file
@@ -194,6 +195,9 @@ def data_loader(_data_dir_path, _interval_size, _step_size, _posi_threshold):
     return action_data
 
 
+########################################################################
+#              normalize the data using neck coordinate                #
+########################################################################
 def normalize_pose_(_pose_data):
 
     neck_x = _pose_data[3]
@@ -208,10 +212,32 @@ def normalize_pose_(_pose_data):
     return _pose_data
 
 
+########################################################################
+#            scaling the data using knee & ankle distance              #
+########################################################################
+def scaling_data_(_pose_data):
+
+    light_knee, light_ankle = [pose[36], pose[37]], [pose[39], pose[40]]
+    right_knee, right_ankle = [pose[27], pose[28]], [pose[30], pose[31]]
+    base_index = 0
+
+    right_dist = ((right_knee[0] - right_ankle[0]) ** 2 + (right_knee[1] - right_ankle[1]) ** 2) ** 0.5
+    light_dist = ((light_knee[0] - light_ankle[0]) ** 2 + (light_knee[1] - light_ankle[1]) ** 2) ** 0.5
+    dist = right_dist if right_dist > light_dist else light_dist
+
+    while base_index < 18:
+        _pose_data[base_index*3] /= dist
+        _pose_data[base_index*3+1] /= dist
+        base_index += 1
+
+    return _pose_data
+
+
 def support_vector_machine_classifier_(train_data, train_class, test_data):
     from sklearn.svm import SVC
 
     return SVC(kernel='linear', C=0.1).fit(train_data, train_class).predict(test_data)
+
 
 if __name__ == '__main__':
     """

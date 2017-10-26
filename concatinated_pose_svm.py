@@ -46,7 +46,7 @@ class DataLoader:
 
 
     @staticmethod
-    def packaging_preprocess_data_(_key_point, _label, _object, _attr, _normalize=True, _scaling=True):
+    def packaging_preprocess_data_(_key_point, _label, _object, _attr, _normalize, _scaling):
         data = []
         point = _key_point
         data.append(_object.find('ID').text)
@@ -72,24 +72,36 @@ class DataLoader:
 
         if file_name in os.listdir(self._save_dir_path):
             f = open(save_file_path, 'a')
+            iter = 1
+            for dat in _list_data:
+                f.write(dat)
+
+                if len(data) == iter:
+                    f.write("\n")
+                    continue
+
+                f.write(",")
+                iter += 1
+
+            f.close()
 
         else:
             f = open(save_file_path, 'w')
 
-        iter = 1
-        for dat in _list_data:
-            f.write(dat)
+            iter = 1
+            for dat in _list_data:
+                f.write(dat)
 
-            if len(data) == iter:
-                f.write("\n")
-                continue
+                if len(data) == iter:
+                    f.write("\n")
+                    continue
 
-            f.write(",")
-            iter += 1
+                f.write(",")
+                iter += 1
 
-        f.close()
+            f.close()
 
-    def preprocess_data_(self, _ground_truth = "macro"):
+    def preprocess_data_(self, _ground_truth="macro", _nomalize=True, _scaling=True):
         for file_number in self._file_num_list:
             xml_file_path = self._xml_dir_path + "\\%03d.xml" % file_number
 
@@ -103,7 +115,7 @@ class DataLoader:
                 for track in tracks.findall('Track'):
                     attr = track.attrib
 
-                    people = self.read_json_pose_(file_number, int(attr['frameNum']))['people']  # 문법 맞나?
+                    people = self.read_json_pose_(file_number, int(attr['frameNum']))['people']
                     for person in people:
                         key_point = person['pose_keypoints']
 
@@ -121,9 +133,9 @@ class DataLoader:
                                     label = 1
                             """
 
-                        packaging_data = self.packaging_preprocess_data_(key_point, label, object, attr)
+                        packaging_data = \
+                            self.packaging_preprocess_data_(key_point, label, object, attr, _nomalize, _scaling)
                         self.saving_preprocess_data_(packaging_data, file_number)
-
 
     def load_data_(self, _interval_size, _step_size, _posi_threshold):
 
@@ -429,7 +441,7 @@ if __name__ == '__main__':
     step = 5
 
     loader = DataLoader(json_dir_path, xml_dir_path, save_dir_path, files)
-    loader.preprocess_data_()
+    loader.preprocess_data_(_scaling=False)
     data = loader.load_data_(interval, step, threshold)
 
     skf = StratifiedKFold(n_splits=10)

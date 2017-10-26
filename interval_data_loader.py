@@ -27,9 +27,10 @@ def read_pose_(filename):
 
     return js
 
-if __name__ == '__main__':
+
+def join_json_xml_file():
     for file in files:
-        xml_path = "D:\ETRI\ETRIxml\%03d.xml" % file
+        xml_path = "D:\etri_data\ETRIxml\ETRIxml\%03d.xml" % file
 
         tree = parse(xml_path)
         root = tree.getroot().find('Objects')
@@ -40,41 +41,27 @@ if __name__ == '__main__':
             Tracks = object.find('Tracks')
             for track in Tracks.findall('Track'):
                 attr = track.attrib
-                json_path = "D:\ETRI\pose\%03d\%03d_%012d_keypoints.json" % (file, file, int(attr['frameNum']))
+                json_path = "D:\etri_data\jsonfile_class1\%03d\%03d_%012d_keypoints.json" % (file, file, int(attr['frameNum']))
                 people = read_pose_(json_path)['people']
                 for person in people:
                     key_point = person['pose_keypoints']
 
-                    """
-                    check = False
-                    for i in range(18):
-
-                        if int(attr['X']) <= key_point[i*3] <= int(attr['X'])+int(attr['W']) and \
-                                                int(attr['Y']) <= key_point[i*3+1] <= int(attr['Y'])+int(attr['H']):
-                            continue
-
-                        check = True
-                        break
-                        
-                    if check:
-                        continue
-                    """
-
-                    if not(int(attr['X']) <= key_point[3] <= int(attr['X']) + int(attr['W']) and \
+                    if not (int(attr['X']) <= key_point[3] <= int(attr['X']) + int(attr['W']) and \
                                             int(attr['Y']) <= key_point[4] <= int(attr['Y']) + int(attr['H'])):
                         continue
 
                     data = []
                     data.append(object.find('ID').text)
+                    data.append(object.find('Type').text)
                     data.append(attr['frameNum'])
                     for i in range(18):
-                        data.append(str(key_point[i*3]))
-                        data.append(str(key_point[i*3+1]))
+                        data.append(str(key_point[i * 3]))
+                        data.append(str(key_point[i * 3 + 1]))
 
                     print data
                     file_name = "%06d.txt" % file
-                    if file_name in os.listdir("D:\workspace\data\etri"):
-                        txt_path = "D:\workspace\data\etri\%s" % file_name
+                    if file_name in os.listdir("C:\Users\JM\Desktop\Data\ETRIrelated\pose classification\json_xml_join_file"):
+                        txt_path = "C:\Users\JM\Desktop\Data\ETRIrelated\pose classification\json_xml_join_file\%s" % file_name
                         f = open(txt_path, 'a')
 
                         iter = 1
@@ -88,7 +75,7 @@ if __name__ == '__main__':
                         f.close()
 
                     else:
-                        txt_path = "D:\workspace\data\etri\%s" % file_name
+                        txt_path = "C:\Users\JM\Desktop\Data\ETRIrelated\pose classification\json_xml_join_file\%s" % file_name
                         f = open(txt_path, 'w')
 
                         iter = 1
@@ -101,69 +88,55 @@ if __name__ == '__main__':
                             iter += 1
                         f.close()
 
-    """
-    xml_path = "D:\ETRI\ETRIxml\%03d.xml" % 6
 
-    tree = parse(xml_path)
-    root = tree.getroot().find('Objects')
-    for object in root.findall('Object'):
-        if not int(object.find('Type').text) in [1, 111]:
+def make_macro_file_to_dict():
+    macro_path = "C:\Users\JM\Desktop\Data\ETRIrelated\pose classification\class1macro.txt"
+    f = open(macro_path, 'r')
+
+    littering_info = {}
+    for lines in f.readlines():
+        split_line = lines.split(" ")
+        littering_info[int(split_line[0])] = [int(split_line[1]), int(split_line[2])]
+
+    f.close()
+    return littering_info
+
+
+def labeling_text_file(_dict):
+    text_file_path = "C:\Users\JM\Desktop\Data\ETRIrelated\pose classification\json_xml_join_file"
+
+    for key in _dict.keys():
+        file_name_check = "%06d.txt" % key
+
+        if file_name_check not in os.listdir(text_file_path):
             continue
 
-        Tracks = object.find('Tracks')
-        for track in Tracks.findall('Track'):
-            attr = track.attrib
-            json_path = "D:\ETRI\pose\%03d\%03d_%012d_keypoints.json" % (6, 6, int(attr['frameNum']))
-            people = read_pose_(json_path)['people']
-            for person in people:
-                key_point = person['pose_keypoints']
+        text_path = "C:\Users\JM\Desktop\Data\ETRIrelated\pose classification\json_xml_join_file\%06d.txt" % key
+        write_path = "C:\Users\JM\Desktop\Data\ETRIrelated\pose classification\gt_json_xml\%06d.txt" % key
 
-                check = False
-                for i in range(18):
+        f = open(text_path, 'r')
+        g = open(write_path, 'w')
+        for lines in f.readlines():
+            split_line = lines.split(",")
+            split_line[-1] = str(float(split_line[-1]))
 
-                    if int(attr['X']) <= key_point[i*3] <= int(attr['X'])+int(attr['W']) and \
-                                            int(attr['Y']) <= key_point[i*3+1] <= int(attr['Y'])+int(attr['H']):
-                        print("continue")
-                        continue
+            if _dict[key][0] <= int(split_line[2]) <= _dict[key][1] and int(split_line[1]) == 111:
+                for split in split_line:
+                    g.write(split)
+                    g.write(",")
+                g.write("1")
+                g.write("\n")
 
-                    check = True
-                    break
+            else:
+                for split in split_line:
+                    g.write(split)
+                    g.write(",")
+                g.write("0")
+                g.write("\n")
+        f.close()
+        g.close()
 
-                if check:
-                    print(1)
-                    continue
-
-                data = []
-                data.append(object.find('ID').text)
-                data.append(attr['frameNum'])
-                for i in range(18):
-                    data.append(str(key_point[i*3]))
-                    data.append(str(key_point[i*3+1]))
-
-                print(data)
-
-                file_name = "%06d.txt" % 6
-                if file_name in os.listdir("D:\workspace\data\etri"):
-                    txt_path = "D:\workspace\data\etri\%s" % file_name
-                    f = open(txt_path, 'a')
-
-                    for dat in data:
-                        f.write(dat)
-                        if data[-1] == dat:
-                            f.write("\n")
-                            continue
-                        f.write(",")
-                    f.close()
-
-                else:
-                    txt_path = "D:\workspace\data\etri\%s" % file_name
-                    f = open(txt_path, 'w')
-
-                    for dat in data:
-                        f.write(dat)
-                        if data[-1] == dat:
-                            f.write("\n")
-                            continue
-                        f.write(",")
-                    f.close()
-    """
+if __name__ == '__main__':
+    join_json_xml_file()
+    dict = make_macro_file_to_dict()
+    labeling_text_file(dict)

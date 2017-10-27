@@ -8,6 +8,12 @@ from sklearn.metrics import precision_recall_fscore_support
 import numpy as np
 
 
+params = {'step':      10,
+          'interval':  30,
+          'threshold': 25,
+          'posi_label': 1
+          }
+
 files = [5, 15, 17, 18, 28,
          31, 41, 42, 58, 100,
          113, 115, 117, 120, 124,
@@ -17,18 +23,55 @@ files = [5, 15, 17, 18, 28,
          196, 199, 202, 206, 213
          ]
 # 153
+frame = [703, 319, 278, 224, 755,
+         1037, 871, 1442, 1761, 288,
+         170, 269, 1049, 99, 214,
+         408, 499, 364, 202, 329,
+         359, 254,  314, 135,
+         369, 269, 839, 628, 522,
+         715, 1194, 176, 1028, 252]
+# 419,
+
+# info 형태 [frame_num, id, 시작 frame, 끝 frame]
+
+class Visualizer:
+
+    def __init__(self, _sample_info, _last_frame_num):
+        self.sample_info = _sample_info
+        self.last_frame_num = _last_frame_num
+        self.graph_save = True
+        self.video_save = False
+        self.true_posi_frame = {}
+        for i in set(self.sample_info[:, 0]):
+            self.true_posi_frame[i] = []
+
+    # 이부분 제대로 코딩 된건지 확인부터 해야함.
+    def check_true_posi_frame(self, _predict_label, _test_label, _test_index, _posi):
+        for index, test_idx in enumerate(_test_index):
+            if _predict_label[index] == _test_label[index] and _predict_label[index] == _posi:
+                cur_info = self.sample_info[test_idx]
+                self.true_posi_frame[cur_info[0]].append(cur_info[2])
+
+    def making_graph_(self):
+        pass
+
+    def save_video_(self):
+        pass
 
 
 class DataLoader:
 
     def __init__(self, _json_dir_path, _xml_dir_path, _save_dir_path, _file_num_list):
-        self._json_dir_path = _json_dir_path
-        self._xml_dir_path = _xml_dir_path
-        self._save_dir_path = _save_dir_path
-        self._file_num_list = _file_num_list
+        self.json_dir_path = _json_dir_path
+        self.xml_dir_path = _xml_dir_path
+        self.save_dir_path = _save_dir_path
+        self.file_num_list = _file_num_list
+
+    def __del__(self):
+        pass
 
     def read_json_pose_(self, _file_num, _frame_num):
-        json_file_path = self._json_dir_path + "\\%03d\\%03d_%012d_keypoints.json" % (_file_num, _file_num, _frame_num)
+        json_file_path = self.json_dir_path + "\\%03d\\%03d_%012d_keypoints.json" % (_file_num, _file_num, _frame_num)
         f = open(json_file_path, 'r')
         js = json.loads(f.read())
         f.close()
@@ -44,14 +87,13 @@ class DataLoader:
         else:
             return False
 
-
     @staticmethod
     def packaging_preprocess_data_(_key_point, _label, _object, _attr, _normalize, _scaling):
-        data = []
+        result_data = []
         point = _key_point
-        data.append(_object.find('ID').text)
-        data.append(_object.find('Type').text)
-        data.append(_attr['frameNum'])
+        result_data.append(_object.find('ID').text)
+        result_data.append(_object.find('Type').text)
+        result_data.append(_attr['frameNum'])
 
         if _normalize:
             point = normalize_pose_(point)
@@ -60,17 +102,17 @@ class DataLoader:
             point = scaling_data_(point)
 
         for i in range(18):
-            data.append(str(point[i * 3]))
-            data.append(str(point[i * 3 + 1]))
-        data.append(str(_label))
+            result_data.append(str(point[i * 3]))
+            result_data.append(str(point[i * 3 + 1]))
+        result_data.append(str(_label))
 
-        return data
+        return result_data
 
     def saving_preprocess_data_(self, _list_data, _file_num):
         file_name = "%06d.txt" % _file_num
-        save_file_path = self._save_dir_path + "\\%s" % file_name
+        save_file_path = self.save_dir_path + "\\%s" % file_name
 
-        if file_name in os.listdir(self._save_dir_path):
+        if file_name in os.listdir(self.save_dir_path):
             f = open(save_file_path, 'a')
 
         else:
@@ -90,8 +132,8 @@ class DataLoader:
         f.close()
 
     def preprocess_data_(self, _ground_truth="macro", _nomalize=True, _scaling=True):
-        for file_number in self._file_num_list:
-            xml_file_path = self._xml_dir_path + "\\%03d.xml" % file_number
+        for file_number in self.file_num_list:
+            xml_file_path = self.xml_dir_path + "\\%03d.xml" % file_number
 
             tree = parse(xml_file_path)
             objects = tree.getroot().find('Objects')
@@ -125,15 +167,16 @@ class DataLoader:
                             self.packaging_preprocess_data_(key_point, label, object, attr, _nomalize, _scaling)
                         self.saving_preprocess_data_(packaging_data, file_number)
 
-    def load_data_(self, _interval_size, _step_size, _posi_threshold):
+    def load_data_(self):
 
         action_data = []
-        for file_name in os.listdir(self._save_dir_path):
+        data_info = []
+        for file_name in os.listdir(self.save_dir_path):
 
-            if int(file_name.split(".")[0]) not in self._file_num_list:
+            if int(file_name.split(".")[0]) not in self.file_num_list:
                 continue
 
-            _data_dir_path = self._save_dir_path + "\\" + file_name
+            _data_dir_path = self.save_dir_path + "\\" + file_name
             f = open(_data_dir_path, 'r')
 
             data = {}
@@ -151,58 +194,37 @@ class DataLoader:
                 data[int(split_line[0])][int(split_line[2])].append(int(split_line[-1]))
             f.close()
 
-            for person_id in data.keys():
-                frame_key = data[person_id].keys()
-                frame_key.sort()
-                if len(frame_key) < _interval_size:
-                    continue
-                start = 0
-                end = _interval_size
-                while 1:
-                    if end >= len(frame_key):
-                        break
+            tmp_data, tmp_info = self.packaging_load_data_(data, int(file_name.split(".")[0]))
+            if not action_data:
+                action_data = tmp_data
+                data_info = tmp_info
+                continue
+            action_data.extend(tmp_data)
+            data_info.extend(tmp_info)
 
-                    if frame_key[end] != frame_key[start] + _interval_size:
-                        break
+        return action_data, data_info
 
-                    label_check = 0
-                    action_data.append([])
-                    for i in frame_key[start:end]:
-                        for j in range(36):
-                            action_data[-1].append(data[person_id][i][j])
-
-                        if data[person_id][i][-1] == 1:
-                            label_check += 1
-
-                    if label_check > _posi_threshold:
-                        action_data[-1].append(1)
-
-                    else:
-                        action_data[-1].append(0)
-
-                    start += _step_size
-                    end += _step_size
-
-        return action_data
-
-    """
     @staticmethod
-    def packaging_load_data_(_read_data, _interval_size, _step_size, _posi_threshold):
+    def packaging_load_data_(_read_data, _file_number):
 
         action_data = []
+        sample_info = []
         for person_id in _read_data.keys():
             frame_key = _read_data[person_id].keys()
             frame_key.sort()
-            if len(frame_key) < _interval_size:
+            if len(frame_key) < params['interval']:
                 continue
             start = 0
-            end = _interval_size
+            end = params['interval']
             while 1:
                 if end >= len(frame_key):
                     break
 
-                if frame_key[end] != frame_key[start] + _interval_size:
+                if frame_key[end] != frame_key[start] + params['interval']:
                     break
+
+                # sample 정보 저장(file number, pose 시작 frame number, pose 끝 frame number
+                sample_info.append([_file_number, person_id, frame_key[start], frame_key[end]])
 
                 label_check = 0
                 action_data.append([])
@@ -213,22 +235,21 @@ class DataLoader:
                     if _read_data[person_id][i][-1] == 1:
                         label_check += 1
 
-                if label_check > _posi_threshold:
+                if label_check > params['threshold']:
                     action_data[-1].append(1)
 
                 else:
                     action_data[-1].append(0)
 
-                start += _step_size
-                end += _step_size
+                start += params['step']
+                end += params['step']
 
-        return action_data
-    """
+        return action_data, sample_info
 
 
 def check_macro_file(_file_num, _frame_num):
     macro_file_path = "C:\\Users\\JM\\Desktop\\Data\\ETRIrelated\\pose classification\\class1macro.txt"
-    f = open(macro_file_path,'r')
+    f = open(macro_file_path, 'r')
     result = False
     for lines in f.readlines():
         split_line = lines.split(' ')
@@ -269,12 +290,12 @@ def scaling_data_(_pose_data):
     right_knee, right_ankle = [_pose_data[27], _pose_data[28]], [_pose_data[30], _pose_data[31]]
     base_index = 0
 
-    right_dist = ((right_knee[0] - right_ankle[0]) ** 2 + (right_knee[1] - right_ankle[1]) ** 2) ** 0.5  # 오른쪽 무릎부터 발목까지 거리
-    light_dist = ((light_knee[0] - light_ankle[0]) ** 2 + (light_knee[1] - light_ankle[1]) ** 2) ** 0.5  # 왼쪽 무릎부터 발목까지 거리
-    dist = right_dist if right_dist > light_dist else light_dist                                         # 오른쪽 왼쪽중 더 긴 거리 선택
+    right_dist = ((right_knee[0] - right_ankle[0]) ** 2 + (right_knee[1] - right_ankle[1]) ** 2) ** 0.5
+    light_dist = ((light_knee[0] - light_ankle[0]) ** 2 + (light_knee[1] - light_ankle[1]) ** 2) ** 0.5
+    dist = right_dist if right_dist > light_dist else light_dist
 
     while base_index < 18:
-        _pose_data[base_index*3] /= dist                                                                 # 선택된 거리를 1로 하는 좌표들로 변환
+        _pose_data[base_index*3] /= dist
         _pose_data[base_index*3+1] /= dist
         base_index += 1
 
@@ -289,37 +310,38 @@ def support_vector_machine_classifier_(train_data, train_class, test_data):
 
 if __name__ == '__main__':
 
+    # read data &
     xml_dir_path = "C:\\Users\JM\\Desktop\Data\\ETRIrelated\\final_xml"
     json_dir_path = "D:\\etri_data\\jsonfile_class1"
     save_dir_path = "C:\Users\JM\Desktop\Data\ETRIrelated\preprocess_data"
 
-    # parameters
-    data = []
-    threshold = 10
-    interval = 20
-    step = 5
-
     loader = DataLoader(json_dir_path, xml_dir_path, save_dir_path, files)
-    loader.preprocess_data_(_scaling=False)
-    data = loader.load_data_(interval, step, threshold)
+    if not os.listdir(save_dir_path):
+        loader.preprocess_data_(_scaling=False)
+
+    data, info = loader.load_data_()
 
     skf = StratifiedKFold(n_splits=10)
     X = []
     y = []
     for dat in data:
-        X.append(dat[0: 36*interval])
-        y.append(dat[36*interval])
+        X.append(dat[0: 36*params['interval']])
+        y.append(dat[36*params['interval']])
 
     X = np.asarray(X)
     y = np.asarray(y)
+    info = np.asarray(info)  # data set 순서에 맞춰서 저장되어 있는 파일
+    print(info[0])
+    visualize = Visualizer(info, frame)
+    """
     precision = 0
     recall = 0
-    print set(y)
     for train_index, test_index in skf.split(X, y):
 
         X_train, X_test = X[train_index], X[test_index]
         y_train, y_test = y[train_index], y[test_index]
-    
+        info_train, info_test = info[train_index], info[test_index]
+        
         predict_label = support_vector_machine_classifier_(X_train, y_train, X_test)
 
         result = precision_recall_fscore_support(y_test, predict_label, average='binary')
@@ -328,5 +350,4 @@ if __name__ == '__main__':
 
     print("precision: %f" % (precision/10))
     print("recall: %f" % (recall / 10))
-
-
+    """

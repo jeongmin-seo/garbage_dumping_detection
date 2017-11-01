@@ -34,6 +34,7 @@ frame = [703, 319, 278, 224, 755,
 
 # info 형태 [frame_num, id, 시작 frame, 끝 frame]
 
+
 class Visualizer:
 
     def __init__(self, _sample_info, _last_frame_num):
@@ -61,11 +62,12 @@ class Visualizer:
 
 class DataLoader:
 
-    def __init__(self, _json_dir_path, _xml_dir_path, _save_dir_path, _file_num_list):
+    def __init__(self, _json_dir_path, _xml_dir_path, _save_dir_path, _file_num_list, _interpolation_size):
         self.json_dir_path = _json_dir_path
         self.xml_dir_path = _xml_dir_path
         self.save_dir_path = _save_dir_path
         self.file_num_list = _file_num_list
+        self.interpolation_size = _interpolation_size  # interpolation 할 때 앞뒤 몇 frame 을 볼지
 
     def __del__(self):
         pass
@@ -79,7 +81,8 @@ class DataLoader:
         return js
 
     @staticmethod
-    def check_pose_in_gtbox_(_key_point, _attr, _margin=0):
+    def check_pose_in_gtbox_(_key_point, _attr, _margin=50):
+
         if int(_attr['X']) - _margin <= _key_point[3] <= int(_attr['X']) + int(_attr['W']) + _margin and \
                 int(_attr['Y']) - _margin <= _key_point[4] <= int(_attr['Y']) + int(_attr['H']) + _margin:
             return True
@@ -95,6 +98,7 @@ class DataLoader:
         result_data.append(_object.find('Type').text)
         result_data.append(_attr['frameNum'])
 
+        # interpolation 부분 넣기
         if _normalize:
             point = normalize_pose_(point)
 
@@ -104,6 +108,7 @@ class DataLoader:
         for i in range(18):
             result_data.append(str(point[i * 3]))
             result_data.append(str(point[i * 3 + 1]))
+            result_data.append(str(point[i * 3 + 2]))
         result_data.append(str(_label))
 
         return result_data
@@ -131,6 +136,36 @@ class DataLoader:
 
         f.close()
 
+    """
+    def interpolation_data(self, _data_dict):
+        result_data = _data_dict
+        interpolation_check = True
+        for file_nums in _data_dict.keys():
+            frame_list = _data_dict[file_nums].keys()
+            for anchor_index in range(frame_list[self.interpolation_size], frame_list[-(self.interpolation_size + 1)]):
+
+                if anchor_index in frame_list:
+                    continue
+
+                interpolation_point = [0] * 36  # 36이라는 숫자 참조형식으로 바꾸는법 생각하기
+                for i in range(anchor_index - self.interpolation_size, anchor_index + self.interpolation_size + 1):
+
+                    if anchor_index == i:
+                        continue
+
+                    if i in frame_list:
+                        interpolation_check = False
+                        break
+
+                    for j in range(len(interpolation_point)):
+                        interpolation_point[j] += _data_dict[file_nums][i] / (self.interpolation_size * 2)
+
+                if interpolation_check:
+                    result_data[file_nums][anchor_index] = interpolation_check
+
+        return result_data
+    """
+
     def preprocess_data_(self, _ground_truth="macro", _nomalize=True, _scaling=True):
         for file_number in self.file_num_list:
             xml_file_path = self.xml_dir_path + "\\%03d.xml" % file_number
@@ -155,7 +190,7 @@ class DataLoader:
                         label = 0
                         if int(object.find('Type').text) == 111:
                             if _ground_truth == "macro":
-                                if check_macro_file(file_number, int(attr['frameNum'])):
+                                if check_macro_file(file_number, int(attr['frameNum'])):  # positive frame 확인
                                     label = 1
                             """
                             else:
@@ -167,7 +202,7 @@ class DataLoader:
                             self.packaging_preprocess_data_(key_point, label, object, attr, _nomalize, _scaling)
                         self.saving_preprocess_data_(packaging_data, file_number)
 
-    def load_data_(self):
+    def load_data_(self):  # 데이터를 로드할 때 interval 단위의 데이터로 생성
 
         action_data = []
         data_info = []
@@ -205,7 +240,7 @@ class DataLoader:
         return action_data, data_info
 
     @staticmethod
-    def packaging_load_data_(_read_data, _file_number):
+    def packaging_load_data_(_read_data, _file_number):  # dictionary로 생성된 데이터를 interval 단위로 묶음
 
         action_data = []
         sample_info = []
@@ -214,6 +249,7 @@ class DataLoader:
             frame_key.sort()
             if len(frame_key) < params['interval']:
                 continue
+
             start = 0
             end = params['interval']
             while 1:
@@ -315,10 +351,10 @@ if __name__ == '__main__':
     json_dir_path = "D:\\etri_data\\jsonfile_class1"
     save_dir_path = "C:\Users\JM\Desktop\Data\ETRIrelated\preprocess_data"
 
-    loader = DataLoader(json_dir_path, xml_dir_path, save_dir_path, files)
+    loader = DataLoader(json_dir_path, xml_dir_path, save_dir_path, files, 2)
     if not os.listdir(save_dir_path):
-        loader.preprocess_data_(_scaling=False)
-
+        loader.preprocess_data_(_nomalize=False, _scaling=False)
+    """
     data, info = loader.load_data_()
 
     skf = StratifiedKFold(n_splits=10)
@@ -333,7 +369,7 @@ if __name__ == '__main__':
     info = np.asarray(info)  # data set 순서에 맞춰서 저장되어 있는 파일
     print(info[0])
     visualize = Visualizer(info, frame)
-    """
+    
     precision = 0
     recall = 0
     for train_index, test_index in skf.split(X, y):

@@ -6,6 +6,7 @@ from xml.etree.ElementTree import parse
 from sklearn.model_selection import StratifiedKFold
 from sklearn.metrics import precision_recall_fscore_support
 import numpy as np
+import matplotlib.pyplot as plt
 
 
 params = {'step':      10,
@@ -32,7 +33,7 @@ frame = [703, 319, 278, 224, 755,
          715, 1194, 176, 1028, 252]
 # 419,
 
-# info 형태 [frame_num, id, 시작 frame, 끝 frame]
+# info 형태 [file_num, id, 시작 frame, 끝 frame]
 
 
 class Visualizer:
@@ -42,9 +43,10 @@ class Visualizer:
         self.last_frame_num = _last_frame_num
         self.graph_save = True
         self.video_save = False
-        self.true_posi_frame = {}
+        self.all_dict = {}
         for i in set(self.sample_info[:, 0]):
-            self.true_posi_frame[i] = []
+            self.all_dict[i] = {}
+
 
     # 이부분 제대로 코딩 된건지 확인부터 해야함.
     def check_true_posi_frame(self, _predict_label, _test_label, _test_index, _posi):
@@ -108,7 +110,7 @@ class DataLoader:
         for i in range(18):
             result_data.append(str(point[i * 3]))
             result_data.append(str(point[i * 3 + 1]))
-            result_data.append(str(point[i * 3 + 2]))
+            # result_data.append(str(point[i * 3 + 2]))
         result_data.append(str(_label))
 
         return result_data
@@ -135,9 +137,9 @@ class DataLoader:
             iter += 1
 
         f.close()
-
     """
-    def interpolation_data(self, _data_dict):
+    def rewrite_interpolation_data(self):
+        
         result_data = _data_dict
         interpolation_check = True
         for file_nums in _data_dict.keys():
@@ -162,10 +164,25 @@ class DataLoader:
 
                 if interpolation_check:
                     result_data[file_nums][anchor_index] = interpolation_check
+        _____________________________________________________________________________________________________________
+
+        for file_name in os.listdir(self.save_dir_path):
+            rewrite_file_path = self.save_dir_path + "\\" + file_name
+            dict = {}
+            f = open(rewrite_file_path, 'r+')
+            for line in f.readline():
+                split_line = line.split(",")
+                person_id = int(split_line[0])
+                if person_id not in dict.keys():
+                    dict[person_id] = {}
+
+                dict[person_id][]
+                for i in range(18):
+
+
 
         return result_data
     """
-
     def preprocess_data_(self, _ground_truth="macro", _nomalize=True, _scaling=True):
         for file_number in self.file_num_list:
             xml_file_path = self.xml_dir_path + "\\%03d.xml" % file_number
@@ -344,6 +361,39 @@ def support_vector_machine_classifier_(train_data, train_class, test_data):
     return SVC(kernel='linear', C=0.1).fit(train_data, train_class).predict(test_data)
 
 
+def drawing_graph_(_all_dict):
+
+    print("Start Drawing Graph")
+
+    for file_number in _all_dict.keys():
+        for person in _all_dict[file_num].keys():
+            frame_length = frame[files.index(file_number)]
+            fig = plt.figure()
+            ax = fig.add_subplot(1, 1, 1)
+            ax.set_xlim([0, frame_length+1])
+
+            for i, result_info in enumerate(_all_dict[file_number][person]):
+                xs = range(result_info[0], result_info[1]+1)
+                ys = [i+1] * len(xs)
+
+                if result_info[2] == "true_positive":
+                    plt.plot(xs, ys, color='darkblue')
+
+                elif result_info[2] == "true_negative":
+                    plt.plot(xs, ys, color="darkblue")
+
+                elif result_info[2] == "false_positive":
+                    plt.plot(xs, ys, color="green")
+
+                else:
+                    plt.plot(xs, ys, color="darkred")
+
+            plt.tight_layout()
+
+            plt.savefig('%d_file_%d_id' % (file_number, person))
+            plt.close(fig)
+
+
 if __name__ == '__main__':
 
     # read data &
@@ -354,8 +404,8 @@ if __name__ == '__main__':
     loader = DataLoader(json_dir_path, xml_dir_path, save_dir_path, files, 2)
     if not os.listdir(save_dir_path):
         loader.preprocess_data_(_nomalize=False, _scaling=False)
-    """
-    data, info = loader.load_data_()
+
+    data, all_info = loader.load_data_()
 
     skf = StratifiedKFold(n_splits=10)
     X = []
@@ -366,19 +416,50 @@ if __name__ == '__main__':
 
     X = np.asarray(X)
     y = np.asarray(y)
-    info = np.asarray(info)  # data set 순서에 맞춰서 저장되어 있는 파일
-    print(info[0])
-    visualize = Visualizer(info, frame)
-    
+    all_info = np.asarray(all_info)  # data set 순서에 맞춰서 저장되어 있는 파일
+    # visualize = Visualizer(info, frame)
+
+    # visualize related
+    all_dict = {}
+    for info in all_info:
+        file_num = info[0]
+        person_id = info[1]
+        if file_num not in all_dict.keys():
+            all_dict[file_num] = {}
+
+        if person_id not in all_dict[file_num].keys():
+            all_dict[file_num][person_id] = []
+
+        all_dict[file_num][person_id].append(info[3:5])
+
     precision = 0
     recall = 0
     for train_index, test_index in skf.split(X, y):
 
         X_train, X_test = X[train_index], X[test_index]
         y_train, y_test = y[train_index], y[test_index]
-        info_train, info_test = info[train_index], info[test_index]
-        
+        info_test = info[test_index]
+
         predict_label = support_vector_machine_classifier_(X_train, y_train, X_test)
+
+        for i, index in enumerate(test_index):
+            result_txt = ""
+            if predict_label[i] == 1:
+                if y_test[i] == predict_label[i]:
+                    result_txt = "true_positive"
+                else:
+                    result_txt = "false_positive"
+
+            else:
+                if y_test[i] == predict_label[i]:
+                    result_txt = "true_negetive"
+
+                else:
+                    result_txt = "false_negative"
+
+            file_num = info_test[i][0]
+            person_id = info_test[i][1]
+            all_dict[file_num][person_id].append(result_txt)
 
         result = precision_recall_fscore_support(y_test, predict_label, average='binary')
         precision += result[0]
@@ -386,4 +467,3 @@ if __name__ == '__main__':
 
     print("precision: %f" % (precision/10))
     print("recall: %f" % (recall / 10))
-    """

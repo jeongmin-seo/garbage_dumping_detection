@@ -7,31 +7,32 @@ from sklearn.model_selection import StratifiedKFold
 from sklearn.metrics import precision_recall_fscore_support
 import numpy as np
 import matplotlib.pyplot as plt
+import matplotlib.patches as mpatches
 
 
-params = {'step':      10,
+params = {'step':      5,
           'interval':  30,
-          'threshold': 25,
+          'threshold': 15,
           'posi_label': 1
           }
 
 files = [5, 15, 17, 18, 28,
          31, 41, 42, 58, 100,
-         113, 115, 117, 120, 124,
+         113, 115, 117, 124,
          125, 127, 133, 136, 140,
          144, 147,  160, 161,
          164, 165, 172, 186, 191,
-         196, 199, 202, 206, 213
+         196, 199, 202, 207, 213
          ]
-# 153
+# 153 120
 frame = [703, 319, 278, 224, 755,
          1037, 871, 1442, 1761, 288,
-         170, 269, 1049, 99, 214,
+         170, 269, 1049, 214,
          408, 499, 364, 202, 329,
          359, 254,  314, 135,
          369, 269, 839, 628, 522,
-         715, 1194, 176, 1028, 252]
-# 419,
+         715, 1194, 176, 352, 252]
+# 419, 99
 
 # info 형태 [file_num, id, 시작 frame, 끝 frame]
 
@@ -46,7 +47,6 @@ class Visualizer:
         self.all_dict = {}
         for i in set(self.sample_info[:, 0]):
             self.all_dict[i] = {}
-
 
     # 이부분 제대로 코딩 된건지 확인부터 해야함.
     def check_true_posi_frame(self, _predict_label, _test_label, _test_index, _posi):
@@ -64,12 +64,12 @@ class Visualizer:
 
 class DataLoader:
 
-    def __init__(self, _json_dir_path, _xml_dir_path, _save_dir_path, _file_num_list, _interpolation_size):
+    def __init__(self, _json_dir_path, _xml_dir_path, _save_dir_path, _file_num_list):  # ,interpolation_size):
         self.json_dir_path = _json_dir_path
         self.xml_dir_path = _xml_dir_path
         self.save_dir_path = _save_dir_path
         self.file_num_list = _file_num_list
-        self.interpolation_size = _interpolation_size  # interpolation 할 때 앞뒤 몇 frame 을 볼지
+        # self.interpolation_size = _interpolation_size  # interpolation 할 때 앞뒤 몇 frame 을 볼지
 
     def __del__(self):
         pass
@@ -83,10 +83,14 @@ class DataLoader:
         return js
 
     @staticmethod
-    def check_pose_in_gtbox_(_key_point, _attr, _margin=50):
+    def check_pose_in_gtbox_(_key_point, _attr, _margin=0):
 
-        if int(_attr['X']) - _margin <= _key_point[3] <= int(_attr['X']) + int(_attr['W']) + _margin and \
-                int(_attr['Y']) - _margin <= _key_point[4] <= int(_attr['Y']) + int(_attr['H']) + _margin:
+        if (int(_attr['X']) - _margin <= _key_point[3] <= int(_attr['X']) + int(_attr['W']) + _margin and
+                int(_attr['Y']) - _margin <= _key_point[4] <= int(_attr['Y']) + int(_attr['H']) + _margin) and \
+                (int(_attr['X']) - _margin <= _key_point[6] <= int(_attr['X']) + int(_attr['W']) + _margin and
+                 int(_attr['Y']) - _margin <= _key_point[7] <= int(_attr['Y']) + int(_attr['W']) + _margin) or \
+                (int(_attr['X']) - _margin <= _key_point[15] <= int(_attr['X']) + int(_attr['W']) + _margin and
+                 int(_attr['Y']) - _margin <= _key_point[16] <= int(_attr['Y']) + int(_attr['W']) + _margin):
             return True
 
         else:
@@ -183,7 +187,7 @@ class DataLoader:
 
         return result_data
     """
-    def preprocess_data_(self, _ground_truth="macro", _nomalize=True, _scaling=True):
+    def preprocess_data_(self, _ground_truth="macro", _nomalize=True, _scaling=False):
         for file_number in self.file_num_list:
             xml_file_path = self.xml_dir_path + "\\%03d.xml" % file_number
 
@@ -257,7 +261,7 @@ class DataLoader:
         return action_data, data_info
 
     @staticmethod
-    def packaging_load_data_(_read_data, _file_number):  # dictionary로 생성된 데이터를 interval 단위로 묶음
+    def packaging_load_data_(_read_data, _file_number):  # dictionary 로 생성된 데이터를 interval 단위로 묶음
 
         action_data = []
         sample_info = []
@@ -339,13 +343,15 @@ def normalize_pose_(_pose_data):
 ########################################################################
 def scaling_data_(_pose_data):
 
-    light_knee, light_ankle = [_pose_data[36], _pose_data[37]], [_pose_data[39], _pose_data[40]]
-    right_knee, right_ankle = [_pose_data[27], _pose_data[28]], [_pose_data[30], _pose_data[31]]
-    base_index = 0
+    neck = [_pose_data[3], _pose_data[4]]
+    left_shoulder = [_pose_data[6], _pose_data[7]]
+    right_shoulder = [_pose_data[15], _pose_data[16]]
 
-    right_dist = ((right_knee[0] - right_ankle[0]) ** 2 + (right_knee[1] - right_ankle[1]) ** 2) ** 0.5
-    light_dist = ((light_knee[0] - light_ankle[0]) ** 2 + (light_knee[1] - light_ankle[1]) ** 2) ** 0.5
-    dist = right_dist if right_dist > light_dist else light_dist
+    left_dist = ((left_shoulder[0] - neck[0]) ** 2 + (left_shoulder[1] - neck[1]) ** 2) ** 0.5
+    right_dist = ((right_shoulder[0] - neck[0]) ** 2 + (right_shoulder[1] - neck[1]) ** 2) ** 0.5
+
+    dist = max(left_dist, right_dist)
+    base_index = 0
 
     while base_index < 18:
         _pose_data[base_index*3] /= dist
@@ -361,51 +367,104 @@ def support_vector_machine_classifier_(train_data, train_class, test_data):
     return SVC(kernel='linear', C=0.1).fit(train_data, train_class).predict(test_data)
 
 
-def drawing_graph_(_all_dict):
+def drawing_graph_(_all_dict, _ground_truth):
 
     print("Start Drawing Graph")
 
+    red_patch = mpatches.Patch(color='red', label='FN')
+    yellow_patch = mpatches.Patch(color='yellow', label='FP')
+    gray_patch = mpatches.Patch(color='darkgray', label='TN')
+    green_patch = mpatches.Patch(color='green', label='TP')
     for file_number in _all_dict.keys():
-        for person in _all_dict[file_num].keys():
+        for person in _all_dict[file_number].keys():
             frame_length = frame[files.index(file_number)]
+            height = len(_all_dict[file_number][person])
             fig = plt.figure()
             ax = fig.add_subplot(1, 1, 1)
             ax.set_xlim([0, frame_length+1])
+            ax.set_ylim([0, len(_all_dict[file_number][person])])
+
+            if file_number in _ground_truth.keys() and person in _ground_truth[file_number].keys():
+                gt_boundary = _ground_truth[file_number][person]
+                for gt in gt_boundary:
+                    plt.bar(gt[0], height, color="lightblue", width=gt[1]-gt[0], align='edge')
 
             for i, result_info in enumerate(_all_dict[file_number][person]):
                 xs = range(result_info[0], result_info[1]+1)
                 ys = [i+1] * len(xs)
 
                 if result_info[2] == "true_positive":
-                    plt.plot(xs, ys, color='darkblue')
-
-                elif result_info[2] == "true_negative":
-                    plt.plot(xs, ys, color="darkblue")
-
-                elif result_info[2] == "false_positive":
                     plt.plot(xs, ys, color="green")
 
-                else:
-                    plt.plot(xs, ys, color="darkred")
+                elif result_info[2] == "true_negative":
+                    plt.plot(xs, ys, color="darkgray")
 
+                elif result_info[2] == "false_positive":
+                    plt.plot(xs, ys, color="yellow")
+
+                else:
+                    plt.plot(xs, ys, color="red")
+
+            plt.legend(handles=[red_patch, yellow_patch, gray_patch, green_patch])
             plt.tight_layout()
 
-            plt.savefig('%d_file_%d_id' % (file_number, person))
+            plt.savefig('file_%d_id_%d' % (file_number, person))
             plt.close(fig)
 
+
+# 없애는 쪽으로 수정해야하는 함수
+def read_gt_():
+    macro_file_path = "C:\\Users\\JM\\Desktop\\Data\\ETRIrelated\\pose classification\\class1macro.txt"
+    f = open(macro_file_path, 'r')
+    gt_dict = {}
+    for lines in f.readlines():
+        split_line = lines.split(' ')
+        file_number = int(split_line[0])
+        person_id = int(split_line[-1])
+        if file_number not in gt_dict.keys():
+            gt_dict[file_number] = {}
+
+        if person_id not in gt_dict[file_number].keys():
+            gt_dict[file_number][person_id] = []
+        gt_dict[file_number][person_id].append([int(split_line[1]), int(split_line[2])])
+
+    f.close()
+    return gt_dict
 
 if __name__ == '__main__':
 
     # read data &
     xml_dir_path = "C:\\Users\JM\\Desktop\Data\\ETRIrelated\\final_xml"
-    json_dir_path = "D:\\etri_data\\jsonfile_class1"
-    save_dir_path = "C:\Users\JM\Desktop\Data\ETRIrelated\preprocess_data"
+    json_dir_path = "D:\\etri_data\\json_bending_pose"
+    save_dir_path = "C:\\Users\\JM\\Desktop\\Data\\ETRIrelated\\preprocess_data"
 
-    loader = DataLoader(json_dir_path, xml_dir_path, save_dir_path, files, 2)
+    loader = DataLoader(json_dir_path, xml_dir_path, save_dir_path, files)
     if not os.listdir(save_dir_path):
-        loader.preprocess_data_(_nomalize=False, _scaling=False)
+        loader.preprocess_data_(_nomalize=True, _scaling=True)
 
     data, all_info = loader.load_data_()
+
+    """
+    nose = 0
+    neck = 0
+    rshoulder = 0
+    lshoulder = 0
+    hist_data = []
+    for dat in data:
+        if dat[0] == 0 or dat[1] == 0 or dat[2] == 0 or dat[3] == 0 or \
+                dat[4] == 0 or dat[5] == 0 or dat[10] == 0 or dat[11] == 0:
+            continue
+
+        nose_to_neck = ((dat[0] - dat[2]) ** 2 + (dat[1] - dat[3]) ** 2) ** 0.5
+        shoulder_to_neck = max( (((dat[2] - dat[4]) ** 2 + (dat[3] - dat[5]) ** 2) ** 0.5),
+                                (((dat[2] - dat[10]) ** 2 + (dat[3] - dat[11]) ** 2) ** 0.5) )
+
+        hist_data.append(nose_to_neck/shoulder_to_neck)
+        print(nose_to_neck, shoulder_to_neck, nose_to_neck/shoulder_to_neck) # 비율로 히스토그램 그려 확인하기
+
+    plt.hist(hist_data, bins=[0,1,2,3,4,5,6,7,8,9,10])
+    plt.show()
+    """
 
     skf = StratifiedKFold(n_splits=10)
     X = []
@@ -414,9 +473,72 @@ if __name__ == '__main__':
         X.append(dat[0: 36*params['interval']])
         y.append(dat[36*params['interval']])
 
+    """
+    train_x = []
+    test_x = []
+    train_y = []
+    test_y = []
+    test_index = []
+    for i, info in enumerate(all_info):
+        if info[0] == 133:
+            test_x.append(data[i][0: 36 * params['interval']])
+            test_y.append(data[i][36 * params['interval']])
+            test_index.append(int(i))
+            continue
+        train_x.append(data[i][0: 36 * params['interval']])
+        train_y.append(data[i][36 * params['interval']])
+
+    predict_label = support_vector_machine_classifier_(train_x, train_y, test_x)
+    test_index = np.asarray(test_index)
+
+
+
+    result = precision_recall_fscore_support(test_y, predict_label, average='binary')
+    print("precision: %f" % result[0])
+    print("recall: %f" % result[1])
+    ground_truth = read_gt_()
+
+    print("Start Drawing Graph")
+
+    red_patch = mpatches.Patch(color='red', label='FN')
+    yellow_patch = mpatches.Patch(color='yellow', label='FP')
+    gray_patch = mpatches.Patch(color='darkgray', label='TN')
+    green_patch = mpatches.Patch(color='green', label='TP')
+    frame_length = 364
+    height = len(predict_label)
+    fig = plt.figure()
+    ax = fig.add_subplot(1, 1, 1)
+    ax.set_xlim([0, frame_length + 1])
+    ax.set_ylim([0, len(predict_label)])
+
+    plt.bar(197, height, color="lightblue", width=103, align='edge')
+
+    for i, result_info in enumerate(predict_label):
+        xs = range(30)
+        ys = [i + 1] * len(xs)
+
+        if result_info == 1 and result_info == test_y[i]:
+            plt.plot(xs, ys, color="green")
+
+        elif result_info == 0 and result_info == test_y[i]:
+            plt.plot(xs, ys, color="darkgray")
+
+        elif result_info == 1 and result_info != test_y[i]:
+            plt.plot(xs, ys, color="yellow")
+
+        else:
+            plt.plot(xs, ys, color="red")
+
+    plt.legend(handles=[red_patch, yellow_patch, gray_patch, green_patch])
+    plt.tight_layout()
+
+    plt.savefig('file')
+    plt.close(fig)
+    """
+
     X = np.asarray(X)
     y = np.asarray(y)
-    all_info = np.asarray(all_info)  # data set 순서에 맞춰서 저장되어 있는 파일
+
     # visualize = Visualizer(info, frame)
 
     # visualize related
@@ -430,15 +552,16 @@ if __name__ == '__main__':
         if person_id not in all_dict[file_num].keys():
             all_dict[file_num][person_id] = []
 
-        all_dict[file_num][person_id].append(info[3:5])
+        all_dict[file_num][person_id].append(info[2:4])
 
+    all_info = np.asarray(all_info)  # data set 순서에 맞춰서 저장되어 있는 파일
     precision = 0
     recall = 0
     for train_index, test_index in skf.split(X, y):
 
         X_train, X_test = X[train_index], X[test_index]
         y_train, y_test = y[train_index], y[test_index]
-        info_test = info[test_index]
+        info_test = all_info[test_index]
 
         predict_label = support_vector_machine_classifier_(X_train, y_train, X_test)
 
@@ -452,14 +575,15 @@ if __name__ == '__main__':
 
             else:
                 if y_test[i] == predict_label[i]:
-                    result_txt = "true_negetive"
+                    result_txt = "true_negative"
 
                 else:
                     result_txt = "false_negative"
 
             file_num = info_test[i][0]
             person_id = info_test[i][1]
-            all_dict[file_num][person_id].append(result_txt)
+            idx = all_dict[file_num][person_id].index([info_test[i][2], info_test[i][3]])
+            all_dict[file_num][person_id][idx].append(result_txt)
 
         result = precision_recall_fscore_support(y_test, predict_label, average='binary')
         precision += result[0]
@@ -467,3 +591,6 @@ if __name__ == '__main__':
 
     print("precision: %f" % (precision/10))
     print("recall: %f" % (recall / 10))
+
+    ground_truth = read_gt_()
+    drawing_graph_(all_dict, ground_truth)

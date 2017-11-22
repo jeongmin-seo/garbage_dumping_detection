@@ -8,12 +8,14 @@ from sklearn.metrics import precision_recall_fscore_support
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
+from sklearn.svm import SVC
 
 
 params = {'step':      5,
           'interval':  30,
           'threshold': 15,
-          'posi_label': 1
+          'posi_label': 1,
+          'bDrawGraph': True
           }
 
 files = [5, 15, 17, 18, 28,
@@ -48,14 +50,54 @@ class Visualizer:
         for i in set(self.sample_info[:, 0]):
             self.all_dict[i] = {}
 
-    # 이부분 제대로 코딩 된건지 확인부터 해야함.
     def check_true_posi_frame(self, _predict_label, _test_label, _test_index, _posi):
         for index, test_idx in enumerate(_test_index):
             if _predict_label[index] == _test_label[index] and _predict_label[index] == _posi:
                 cur_info = self.sample_info[test_idx]
                 self.true_posi_frame[cur_info[0]].append(cur_info[2])
 
-    def making_graph_(self):
+    def making_graph_(self, _all_dict, _ground_truth):
+        print("Start Drawing Graph")
+
+        red_patch = mpatches.Patch(color='red', label='FN')
+        yellow_patch = mpatches.Patch(color='yellow', label='FP')
+        gray_patch = mpatches.Patch(color='darkgray', label='TN')
+        green_patch = mpatches.Patch(color='green', label='TP')
+        for file_number in _all_dict.keys():
+            for person in _all_dict[file_number].keys():
+                frame_length = frame[files.index(file_number)]
+                height = len(_all_dict[file_number][person])
+                fig = plt.figure()
+                ax = fig.add_subplot(1, 1, 1)
+                ax.set_xlim([0, frame_length + 1])
+                ax.set_ylim([0, len(_all_dict[file_number][person]) + 1])
+
+                if file_number in _ground_truth.keys() and person in _ground_truth[file_number].keys():
+                    gt_boundary = _ground_truth[file_number][person]
+                    for gt in gt_boundary:
+                        plt.bar(gt[0], height + 1, color="lightblue", width=gt[1] - gt[0], align='edge')
+
+                for i, result_info in enumerate(_all_dict[file_number][person]):
+                    xs = range(result_info[0], result_info[1] + 1)
+                    ys = [i + 1] * len(xs)
+
+                    if result_info[2] == "true_positive":
+                        plt.plot(xs, ys, color="green")
+
+                    elif result_info[2] == "true_negative":
+                        plt.plot(xs, ys, color="darkgray")
+
+                    elif result_info[2] == "false_positive":
+                        plt.plot(xs, ys, color="yellow")
+
+                    else:
+                        plt.plot(xs, ys, color="red")
+
+                plt.legend(handles=[red_patch, yellow_patch, gray_patch, green_patch])
+                plt.tight_layout()
+
+                plt.savefig('file_%d_id_%d' % (file_number, person))
+                plt.close(fig)
         pass
 
     def save_video_(self):
@@ -141,52 +183,7 @@ class DataLoader:
             iter += 1
 
         f.close()
-    """
-    def rewrite_interpolation_data(self):
-        
-        result_data = _data_dict
-        interpolation_check = True
-        for file_nums in _data_dict.keys():
-            frame_list = _data_dict[file_nums].keys()
-            for anchor_index in range(frame_list[self.interpolation_size], frame_list[-(self.interpolation_size + 1)]):
 
-                if anchor_index in frame_list:
-                    continue
-
-                interpolation_point = [0] * 36  # 36이라는 숫자 참조형식으로 바꾸는법 생각하기
-                for i in range(anchor_index - self.interpolation_size, anchor_index + self.interpolation_size + 1):
-
-                    if anchor_index == i:
-                        continue
-
-                    if i in frame_list:
-                        interpolation_check = False
-                        break
-
-                    for j in range(len(interpolation_point)):
-                        interpolation_point[j] += _data_dict[file_nums][i] / (self.interpolation_size * 2)
-
-                if interpolation_check:
-                    result_data[file_nums][anchor_index] = interpolation_check
-        _____________________________________________________________________________________________________________
-
-        for file_name in os.listdir(self.save_dir_path):
-            rewrite_file_path = self.save_dir_path + "\\" + file_name
-            dict = {}
-            f = open(rewrite_file_path, 'r+')
-            for line in f.readline():
-                split_line = line.split(",")
-                person_id = int(split_line[0])
-                if person_id not in dict.keys():
-                    dict[person_id] = {}
-
-                dict[person_id][]
-                for i in range(18):
-
-
-
-        return result_data
-    """
     def preprocess_data_(self, _ground_truth="macro", _nomalize=True, _scaling=False):
         for file_number in self.file_num_list:
             xml_file_path = self.xml_dir_path + "\\%03d.xml" % file_number
@@ -211,7 +208,7 @@ class DataLoader:
                         label = 0
                         if int(object.find('Type').text) == 111:
                             if _ground_truth == "macro":
-                                if check_macro_file(file_number, int(attr['frameNum'])):  # positive frame 확인
+                                if check_macro_file(file_number, int(attr['frameNum']), int(object.find('ID').text)):  # positive frame 확인
                                     label = 1
                             """
                             else:
@@ -278,7 +275,9 @@ class DataLoader:
                     break
 
                 if frame_key[end] != frame_key[start] + params['interval']:
-                    break
+                    start += 1
+                    end += 1
+                    continue
 
                 # sample 정보 저장(file number, pose 시작 frame number, pose 끝 frame number
                 sample_info.append([_file_number, person_id, frame_key[start], frame_key[end]])
@@ -304,7 +303,7 @@ class DataLoader:
         return action_data, sample_info
 
 
-def check_macro_file(_file_num, _frame_num):
+def check_macro_file(_file_num, _frame_num, _person_id):
     macro_file_path = "C:\\Users\\JM\\Desktop\\Data\\ETRIrelated\\pose classification\\class1macro.txt"
     f = open(macro_file_path, 'r')
     result = False
@@ -312,6 +311,9 @@ def check_macro_file(_file_num, _frame_num):
         split_line = lines.split(' ')
 
         if int(split_line[0]) != _file_num:
+            continue
+
+        if int(split_line[-1]) != _person_id:
             continue
 
         if int(split_line[1]) <= _frame_num <= int(split_line[2]):
@@ -339,7 +341,7 @@ def normalize_pose_(_pose_data):
 
 
 ########################################################################
-#            scaling the data using knee & ankle distance              #
+#           scaling the data using neck to shoulder distance           #
 ########################################################################
 def scaling_data_(_pose_data):
 
@@ -364,7 +366,7 @@ def scaling_data_(_pose_data):
 def support_vector_machine_classifier_(train_data, train_class, test_data):
     from sklearn.svm import SVC
 
-    return SVC(kernel='linear', C=0.1).fit(train_data, train_class).predict(test_data)
+    return SVC(kernel='linear', C=0.1).fit(train_data, train_class) # .predict(test_data)
 
 
 def drawing_graph_(_all_dict, _ground_truth):
@@ -382,12 +384,12 @@ def drawing_graph_(_all_dict, _ground_truth):
             fig = plt.figure()
             ax = fig.add_subplot(1, 1, 1)
             ax.set_xlim([0, frame_length+1])
-            ax.set_ylim([0, len(_all_dict[file_number][person])])
+            ax.set_ylim([0, len(_all_dict[file_number][person])+1])
 
             if file_number in _ground_truth.keys() and person in _ground_truth[file_number].keys():
                 gt_boundary = _ground_truth[file_number][person]
                 for gt in gt_boundary:
-                    plt.bar(gt[0], height, color="lightblue", width=gt[1]-gt[0], align='edge')
+                    plt.bar(gt[0], height+1, color="lightblue", width=gt[1]-gt[0], align='edge')
 
             for i, result_info in enumerate(_all_dict[file_number][person]):
                 xs = range(result_info[0], result_info[1]+1)
@@ -440,7 +442,7 @@ if __name__ == '__main__':
 
     loader = DataLoader(json_dir_path, xml_dir_path, save_dir_path, files)
     if not os.listdir(save_dir_path):
-        loader.preprocess_data_(_nomalize=True, _scaling=True)
+        loader.preprocess_data_(_nomalize=False, _scaling=False)
 
     data, all_info = loader.load_data_()
 
@@ -473,69 +475,6 @@ if __name__ == '__main__':
         X.append(dat[0: 36*params['interval']])
         y.append(dat[36*params['interval']])
 
-    """
-    train_x = []
-    test_x = []
-    train_y = []
-    test_y = []
-    test_index = []
-    for i, info in enumerate(all_info):
-        if info[0] == 133:
-            test_x.append(data[i][0: 36 * params['interval']])
-            test_y.append(data[i][36 * params['interval']])
-            test_index.append(int(i))
-            continue
-        train_x.append(data[i][0: 36 * params['interval']])
-        train_y.append(data[i][36 * params['interval']])
-
-    predict_label = support_vector_machine_classifier_(train_x, train_y, test_x)
-    test_index = np.asarray(test_index)
-
-
-
-    result = precision_recall_fscore_support(test_y, predict_label, average='binary')
-    print("precision: %f" % result[0])
-    print("recall: %f" % result[1])
-    ground_truth = read_gt_()
-
-    print("Start Drawing Graph")
-
-    red_patch = mpatches.Patch(color='red', label='FN')
-    yellow_patch = mpatches.Patch(color='yellow', label='FP')
-    gray_patch = mpatches.Patch(color='darkgray', label='TN')
-    green_patch = mpatches.Patch(color='green', label='TP')
-    frame_length = 364
-    height = len(predict_label)
-    fig = plt.figure()
-    ax = fig.add_subplot(1, 1, 1)
-    ax.set_xlim([0, frame_length + 1])
-    ax.set_ylim([0, len(predict_label)])
-
-    plt.bar(197, height, color="lightblue", width=103, align='edge')
-
-    for i, result_info in enumerate(predict_label):
-        xs = range(30)
-        ys = [i + 1] * len(xs)
-
-        if result_info == 1 and result_info == test_y[i]:
-            plt.plot(xs, ys, color="green")
-
-        elif result_info == 0 and result_info == test_y[i]:
-            plt.plot(xs, ys, color="darkgray")
-
-        elif result_info == 1 and result_info != test_y[i]:
-            plt.plot(xs, ys, color="yellow")
-
-        else:
-            plt.plot(xs, ys, color="red")
-
-    plt.legend(handles=[red_patch, yellow_patch, gray_patch, green_patch])
-    plt.tight_layout()
-
-    plt.savefig('file')
-    plt.close(fig)
-    """
-
     X = np.asarray(X)
     y = np.asarray(y)
 
@@ -546,6 +485,7 @@ if __name__ == '__main__':
     for info in all_info:
         file_num = info[0]
         person_id = info[1]
+
         if file_num not in all_dict.keys():
             all_dict[file_num] = {}
 
@@ -555,6 +495,81 @@ if __name__ == '__main__':
         all_dict[file_num][person_id].append(info[2:4])
 
     all_info = np.asarray(all_info)  # data set 순서에 맞춰서 저장되어 있는 파일
+
+    precision = 0
+    recall = 0
+    all_predict = []
+    test_all = []
+    # 파일별로 학습하고 test 하는 코드
+    for f_num in files:
+        test_idx = []
+        train_idx = []
+
+        for i, f_info in enumerate(all_info):
+            if f_info[0] == f_num:
+                test_idx.append(i)
+                continue
+            train_idx.append(i)
+
+        test_idx = np.asarray(test_idx)
+        train_idx = np.asarray(train_idx)
+
+        if not len(test_idx):
+            print("error:", f_num)
+            continue
+
+        X_train, X_test = X[train_idx], X[test_idx]
+        y_train, y_test = y[train_idx], y[test_idx]
+        info_test = all_info[test_idx]
+
+        # predict_label = support_vector_machine_classifier_(X_train, y_train, X_test)
+
+        # suvec = support_vector_machine_classifier_(X_train, y_train, X_test)
+        svc = SVC()
+        fit_svc = svc.fit(X_train, y_train)
+        # print(fit_svc.__getattribute__()) # TODO: 추후에 이것으로 C++에서 SVM돌려야함
+        predict_label = svc.predict(y_test)
+        if not all_predict:
+            all_predict = predict_label.tolist()
+        else:
+            all_predict.extend(predict_label.tolist())
+
+        if not test_all:
+            test_all = y_test.tolist()
+        else:
+            test_all.extend(y_test.tolist())
+
+        for i, index in enumerate(test_idx):
+            result_txt = ""
+            if predict_label[i] == 1:
+                if y_test[i] == predict_label[i]:
+                    result_txt = "true_positive"
+                else:
+                    result_txt = "false_positive"
+
+            else:
+                if y_test[i] == predict_label[i]:
+                    result_txt = "true_negative"
+
+                else:
+                    result_txt = "false_negative"
+
+            file_num = info_test[i][0]
+            person_id = info_test[i][1]
+            idx = all_dict[file_num][person_id].index([info_test[i][2], info_test[i][3]])
+            all_dict[file_num][person_id][idx].append(result_txt)
+
+        result = precision_recall_fscore_support(y_test, predict_label, average='binary')
+        print("file: ", f_num)
+        print("precision: ", result[0], "recall: ", result[1])
+
+    result = precision_recall_fscore_support(test_all, all_predict, average='binary')
+    print("file: All")
+    print("precision: ", result[0], "recall: ", result[1])
+
+
+    """
+    # 파일 다 섞어서 하는 코드
     precision = 0
     recall = 0
     for train_index, test_index in skf.split(X, y):
@@ -591,6 +606,7 @@ if __name__ == '__main__':
 
     print("precision: %f" % (precision/10))
     print("recall: %f" % (recall / 10))
+    """
 
     ground_truth = read_gt_()
     drawing_graph_(all_dict, ground_truth)

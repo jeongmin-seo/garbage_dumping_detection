@@ -372,7 +372,7 @@ def support_vector_machine_classifier_(train_data, train_class, test_data):
     #y_predict = svc.predict(test_data)
 
     # if you want weighted class svm, you could adjust class_weight parameter like "class_weight={0:0.08,3:0.92}"
-    return SVC(kernel='linear', C=0.1).fit(train_data, train_class).predict(test_data)
+    return SVC(kernel='linear', C=0.1).fit(train_data, train_class) # .predict(test_data)
 
 
 def boot_strapping_(train_data, train_class):

@@ -2,22 +2,25 @@
 
 import json
 import os
-from xml.etree.ElementTree import parse
+from xml.etree.ElementTree import ElementTree, parse, dump, Element, SubElement
 from sklearn.model_selection import StratifiedKFold
 from sklearn.metrics import precision_recall_fscore_support
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
 from sklearn.svm import SVC
+import copy
 
 
 params = {'step':      5,
           'interval':  30,
           'threshold': 15,
           'posi_label': 1,
-          'bDrawGraph': True
+          'bDrawGraph': True,
+          'bUsingDisparity': True
           }
 
+# bending pose
 files = [5, 15, 17, 18, 28,
          31, 41, 42, 58, 100,
          113, 115, 117, 124,
@@ -26,7 +29,7 @@ files = [5, 15, 17, 18, 28,
          164, 165, 172, 186, 191,
          196, 199, 202, 207, 213
          ]
-# 153 120
+# 153 120 172,
 frame = [703, 319, 278, 224, 755,
          1037, 871, 1442, 1761, 288,
          170, 269, 1049, 214,
@@ -34,8 +37,24 @@ frame = [703, 319, 278, 224, 755,
          359, 254,  314, 135,
          369, 269, 839, 628, 522,
          715, 1194, 176, 352, 252]
-# 419, 99
+# 419, 99 839,
 
+"""
+# class 2
+files = [6, 23, 13, 46, 57,
+         61, 69, 95, 99]
+
+frame = [593, 509, 329, 639, 824,
+         134, 486, 319, 599]
+"""
+"""
+# class 3
+files = [214, 195, 192, 188, 187,
+         184, 183, 157, 123]
+
+frame = [344, 271, 279, 367, 556,
+         1596, 905, 409, 219]
+"""
 # info 형태 [file_num, id, 시작 frame, 끝 frame]
 
 
@@ -129,9 +148,9 @@ class DataLoader:
 
         if (int(_attr['X']) - _margin <= _key_point[3] <= int(_attr['X']) + int(_attr['W']) + _margin and
                 int(_attr['Y']) - _margin <= _key_point[4] <= int(_attr['Y']) + int(_attr['H']) + _margin) and \
-                (int(_attr['X']) - _margin <= _key_point[6] <= int(_attr['X']) + int(_attr['W']) + _margin and
+                ((int(_attr['X']) - _margin <= _key_point[6] <= int(_attr['X']) + int(_attr['W']) + _margin and
                  int(_attr['Y']) - _margin <= _key_point[7] <= int(_attr['Y']) + int(_attr['W']) + _margin) or \
-                (int(_attr['X']) - _margin <= _key_point[15] <= int(_attr['X']) + int(_attr['W']) + _margin and
+                int(_attr['X']) - _margin <= _key_point[15] <= int(_attr['X']) + int(_attr['W']) + _margin and
                  int(_attr['Y']) - _margin <= _key_point[16] <= int(_attr['Y']) + int(_attr['W']) + _margin):
             return True
 
@@ -139,20 +158,21 @@ class DataLoader:
             return False
 
     @staticmethod
-    def packaging_preprocess_data_(_key_point, _label, _object, _attr, _normalize, _scaling):
+    def packaging_preprocess_data_(_key_point, _label, _object, _attr): #, _normalize, _scaling):
         result_data = []
         point = _key_point
         result_data.append(_object.find('ID').text)
         result_data.append(_object.find('Type').text)
         result_data.append(_attr['frameNum'])
 
+        """
         # interpolation 부분 넣기
         if _normalize:
             point = normalize_pose_(point)
 
         if _scaling:
             point = scaling_data_(point)
-
+        """
         for i in range(18):
             result_data.append(str(point[i * 3]))
             result_data.append(str(point[i * 3 + 1]))
@@ -160,7 +180,8 @@ class DataLoader:
         result_data.append(str(_label))
 
         return result_data
-
+    
+    # labeling 된 데이터 저장하는 부분
     def saving_preprocess_data_(self, _list_data, _file_num):
         file_name = "%06d.txt" % _file_num
         save_file_path = self.save_dir_path + "\\%s" % file_name
@@ -184,10 +205,11 @@ class DataLoader:
 
         f.close()
 
-    def preprocess_data_(self, _ground_truth="macro", _nomalize=True, _scaling=False):
+    def preprocess_data_(self, _ground_truth="macro"): # _nomalize, _scaling, _ground_truth="macro"):
         for file_number in self.file_num_list:
             xml_file_path = self.xml_dir_path + "\\%03d.xml" % file_number
 
+            # xml 파일 읽어오기
             tree = parse(xml_file_path)
             objects = tree.getroot().find('Objects')
             for object in objects:
@@ -198,10 +220,14 @@ class DataLoader:
                 for track in tracks.findall('Track'):
                     attr = track.attrib
 
+                    # key point 읽어오기
                     people = self.read_json_pose_(file_number, int(attr['frameNum']))['people']
+
+                    # 사람별 key point 접근
                     for person in people:
                         key_point = person['pose_keypoints']
 
+                        # 주요한 점들이 박스 밖으로 나간 경우에는 해당 Pose 를 없애기
                         if not self.check_pose_in_gtbox_(key_point, attr):
                             continue
 
@@ -217,19 +243,25 @@ class DataLoader:
                             """
 
                         packaging_data = \
-                            self.packaging_preprocess_data_(key_point, label, object, attr, _nomalize, _scaling)
+                            self.packaging_preprocess_data_(key_point, label, object, attr) #, _nomalize, _scaling)
                         self.saving_preprocess_data_(packaging_data, file_number)
 
-    def load_data_(self):  # 데이터를 로드할 때 interval 단위의 데이터로 생성
+
+########################################################################
+#                     interval 단위로  데이터 로드                       #
+########################################################################
+    def load_data_(self, _file_path):  # 데이터를 로드할 때 interval 단위의 데이터로 생성
 
         action_data = []
         data_info = []
-        for file_name in os.listdir(self.save_dir_path):
+        for file_name_ in os.listdir(_file_path):
 
-            if int(file_name.split(".")[0]) not in self.file_num_list:
+            split_name = file_name_.split('.')
+
+            if split_name[1] != 'txt':
                 continue
 
-            _data_dir_path = self.save_dir_path + "\\" + file_name
+            _data_dir_path = _file_path + "\\" + file_name_
             f = open(_data_dir_path, 'r')
 
             data = {}
@@ -247,7 +279,7 @@ class DataLoader:
                 data[int(split_line[0])][int(split_line[2])].append(int(split_line[-1]))
             f.close()
 
-            tmp_data, tmp_info = self.packaging_load_data_(data, int(file_name.split(".")[0]))
+            tmp_data, tmp_info = self.packaging_load_data_(data, int(file_name_.split(".")[0]))
             if not action_data:
                 action_data = tmp_data
                 data_info = tmp_info
@@ -257,8 +289,7 @@ class DataLoader:
 
         return action_data, data_info
 
-    @staticmethod
-    def packaging_load_data_(_read_data, _file_number):  # dictionary 로 생성된 데이터를 interval 단위로 묶음
+    def packaging_load_data_(self, _read_data, _file_number):  # dictionary로 생성된 데이터를 interval 단위로 묶음
 
         action_data = []
         sample_info = []
@@ -278,6 +309,7 @@ class DataLoader:
                     start += 1
                     end += 1
                     continue
+                    # break
 
                 # sample 정보 저장(file number, pose 시작 frame number, pose 끝 frame number
                 sample_info.append([_file_number, person_id, frame_key[start], frame_key[end]])
@@ -285,11 +317,28 @@ class DataLoader:
                 label_check = 0
                 action_data.append([])
                 for i in frame_key[start:end]:
+
+                    print(len(_read_data[person_id][i]))
+                    tmp_list = copy.deepcopy(_read_data[person_id][i])
+                    tmp_list = self.normalize_pose_(tmp_list)
+                    tmp_list = self.scaling_data_(tmp_list)
+
                     for j in range(36):
-                        action_data[-1].append(_read_data[person_id][i][j])
+                        action_data[-1].append(tmp_list[j])
 
                     if _read_data[person_id][i][-1] == 1:
                         label_check += 1
+
+                if params['bUsingDisparity']:
+                    for i in frame_key[start:end]:
+
+                        if i == frame_key[start]:
+                            for j in range(36):
+                                action_data[-1].append(0)
+
+                        else:
+                            for j in range(36):
+                                action_data[-1].append(_read_data[person_id][i][j] - _read_data[person_id][i-1][j])
 
                 if label_check > params['threshold']:
                     action_data[-1].append(1)
@@ -301,6 +350,47 @@ class DataLoader:
                 end += params['step']
 
         return action_data, sample_info
+
+    ########################################################################
+    #              normalize the data using neck coordinate                #
+    ########################################################################
+    @staticmethod
+    def normalize_pose_(_pose_data):
+
+        neck_x = _pose_data[2]
+        neck_y = _pose_data[3]
+        base_index = 0
+
+        # print(len(_pose_data))
+        while base_index < 18:
+            _pose_data[base_index * 2] -= neck_x
+            _pose_data[base_index * 2 + 1] -= neck_y  # 목좌표로 좌표계 변환
+            base_index += 1
+
+        return _pose_data
+
+    ########################################################################
+    #           scaling the data using neck to shoulder distance           #
+    ########################################################################
+    @staticmethod
+    def scaling_data_(_pose_data):
+
+        neck = [_pose_data[2], _pose_data[3]]
+        right_shoulder = [_pose_data[4], _pose_data[5]]
+        left_shoulder = [_pose_data[10], _pose_data[11]]
+
+        left_dist = ((left_shoulder[0] - neck[0]) ** 2 + (left_shoulder[1] - neck[1]) ** 2) ** 0.5
+        right_dist = ((right_shoulder[0] - neck[0]) ** 2 + (right_shoulder[1] - neck[1]) ** 2) ** 0.5
+
+        dist = max(left_dist, right_dist)
+        base_index = 0
+
+        while base_index < 18:
+            _pose_data[base_index * 2] /= dist
+            _pose_data[base_index * 2 + 1] /= dist
+            base_index += 1
+
+        return _pose_data
 
 
 def check_macro_file(_file_num, _frame_num, _person_id):
@@ -323,50 +413,10 @@ def check_macro_file(_file_num, _frame_num, _person_id):
     return result
 
 
-########################################################################
-#              normalize the data using neck coordinate                #
-########################################################################
-def normalize_pose_(_pose_data):
-
-    neck_x = _pose_data[3]
-    neck_y = _pose_data[4]
-    base_index = 0
-
-    while base_index < 18:
-        _pose_data[base_index*3] -= neck_x
-        _pose_data[base_index*3+1] -= neck_y  # 목좌표로 좌표계 변환
-        base_index += 1
-
-    return _pose_data
-
-
-########################################################################
-#           scaling the data using neck to shoulder distance           #
-########################################################################
-def scaling_data_(_pose_data):
-
-    neck = [_pose_data[3], _pose_data[4]]
-    left_shoulder = [_pose_data[6], _pose_data[7]]
-    right_shoulder = [_pose_data[15], _pose_data[16]]
-
-    left_dist = ((left_shoulder[0] - neck[0]) ** 2 + (left_shoulder[1] - neck[1]) ** 2) ** 0.5
-    right_dist = ((right_shoulder[0] - neck[0]) ** 2 + (right_shoulder[1] - neck[1]) ** 2) ** 0.5
-
-    dist = max(left_dist, right_dist)
-    base_index = 0
-
-    while base_index < 18:
-        _pose_data[base_index*3] /= dist
-        _pose_data[base_index*3+1] /= dist
-        base_index += 1
-
-    return _pose_data
-
-
-def support_vector_machine_classifier_(train_data, train_class, test_data):
+def support_vector_machine_classifier_(train_data, train_class):
     from sklearn.svm import SVC
 
-    return SVC(kernel='linear', C=0.1).fit(train_data, train_class) # .predict(test_data)
+    return SVC(kernel='linear', C=0.1).fit(train_data, train_class)
 
 
 def drawing_graph_(_all_dict, _ground_truth):
@@ -378,6 +428,9 @@ def drawing_graph_(_all_dict, _ground_truth):
     gray_patch = mpatches.Patch(color='darkgray', label='TN')
     green_patch = mpatches.Patch(color='green', label='TP')
     for file_number in _all_dict.keys():
+        if file_number != 172:
+            continue
+
         for person in _all_dict[file_number].keys():
             frame_length = frame[files.index(file_number)]
             height = len(_all_dict[file_number][person])
@@ -433,54 +486,150 @@ def read_gt_():
     f.close()
     return gt_dict
 
+
+def save_model_to_xml_(_model):
+    storage = Element("opencv_storage")
+    my_svm = Element("my_svm")
+    my_svm.attrib["type_id"] = "opencv-ml-svm"
+    storage.append(my_svm)
+
+    svm_type = SubElement(my_svm, "svm_type")
+    svm_type.text = "C_SVC"
+
+    kernel = SubElement(my_svm, "kernel")
+    type   = SubElement(kernel, "type")
+    type.text = str(_model.kernel)
+    gamma = SubElement(kernel, "gamma")
+    gamma.text = str(_model.gamma)
+
+    C = SubElement(my_svm, "C")
+    C.text = str(_model.C)
+
+    term_criteria = SubElement(my_svm, "term_criteria")
+    epsilon = SubElement(term_criteria, "epsilon")
+    epsilon.text = str(_model.tol)                       # Dummy data because it is not necessary
+    iterations = SubElement(term_criteria, "iterations")
+    iterations.text = "1000"                        # Dummy data because it is not necessary
+
+    var_all = SubElement(my_svm, "var_all")
+    var_all.text = str(len(_model.support_vectors_[0]))
+    var_count = SubElement(my_svm, "var_count")
+    var_count.text = str(len(_model.support_vectors_[0]))
+
+    class_count = SubElement(my_svm, "class_count")
+    class_count.text = str(len(_model.n_support_))
+
+    class_labels = SubElement(my_svm, "class_labels")
+    class_labels.attrib["type_id"] = "opencv-matrix"
+    rows = SubElement(class_labels, "rows")
+    cols = SubElement(class_labels, "cols")
+    dt = SubElement(class_labels, "dt")
+    data = SubElement(class_labels, "data")
+    rows.text = "2"
+    cols.text = "1"
+    dt.text = "i"
+    data.text = "0 1"                         # TODO: Input SVM related
+
+    sv_total = SubElement(my_svm, "sv_total")
+    sv_total.text = str(len(_model.support_vectors_))
+
+    support_vectors = SubElement(my_svm, "support_vectors")
+    # str_vector = ""
+    for i, vector in enumerate(_model.support_vectors_):
+        tmp = " ".join([str(vec) for vec in vector])
+        support_under_bar_ = SubElement(support_vectors, "_")
+        support_under_bar_.text = tmp
+
+    # support_vectors.text = str_vector
+
+    decision_functions = SubElement(my_svm, "decision_functions")
+    under_bar = SubElement(decision_functions, "_")
+    sv_count = SubElement(under_bar, "sv_count")
+    rho = SubElement(under_bar, "rho")
+    alpha = SubElement(under_bar, "alpha")
+    # index = SubElement(under_bar, "index")
+
+    sv_count.text = str(len(_model.support_vectors_))
+    rho.text = str(float(_model.intercept_))
+    for i, vector in enumerate(_model.dual_coef_):
+        tmp = " ".join([str(vec) for vec in vector])
+        # support_under_bar_ = SubElement(support_vectors, "_")
+        alpha.text = tmp
+    # index.text = "0 1 2 3 4"                   # TODO: Input SVM related
+
+    indent(storage)
+    dump(storage)
+    ElementTree(storage).write("model.xml")
+
+
+def indent(elem, level=0):
+    i = "\n" + level*"  "
+
+    if len(elem):
+        if not elem.text or not elem.text.strip():
+            elem.text = i + "  "
+        if not elem.tail or not elem.tail.strip():
+            elem.tail = i
+        if level == 0:
+            elem.text = '\n'
+
+        for elem in elem:
+            indent(elem, level+1)
+        if not elem.tail or not elem.tail.strip():
+            if level == 1:
+                elem.tail = '\n'
+            else:
+                elem.tail = i
+
+    else:
+        if level and (not elem.tail or not elem.tail.strip()):
+            elem.tail = i
+
+
+def make_opencv_data(_data, _label):
+    f = open('opencv_data.txt', 'w')
+
+    for i, dat in enumerate(_data):
+        for element in dat:
+            tmp = '%f,' % element
+            f.write(tmp)
+
+        tmp = '%d\n' % y[i]
+        f.write(tmp)
+
+    f.close()
+
 if __name__ == '__main__':
 
-    # read data &
+    # read data
     xml_dir_path = "C:\\Users\JM\\Desktop\Data\\ETRIrelated\\final_xml"
-    json_dir_path = "D:\\etri_data\\json_bending_pose"
+    json_dir_path = "D:\\etri_data\\pose"
     save_dir_path = "C:\\Users\\JM\\Desktop\\Data\\ETRIrelated\\preprocess_data"
 
     loader = DataLoader(json_dir_path, xml_dir_path, save_dir_path, files)
     if not os.listdir(save_dir_path):
-        loader.preprocess_data_(_nomalize=False, _scaling=False)
+        loader.preprocess_data_()  # _nomalize=True, _scaling=True)
 
-    data, all_info = loader.load_data_()
+    data, all_info = loader.load_data_("C:\\Users\\JM\\Desktop\\Data\\ETRIrelated\\preprocess_data")
 
-    """
-    nose = 0
-    neck = 0
-    rshoulder = 0
-    lshoulder = 0
-    hist_data = []
-    for dat in data:
-        if dat[0] == 0 or dat[1] == 0 or dat[2] == 0 or dat[3] == 0 or \
-                dat[4] == 0 or dat[5] == 0 or dat[10] == 0 or dat[11] == 0:
-            continue
 
-        nose_to_neck = ((dat[0] - dat[2]) ** 2 + (dat[1] - dat[3]) ** 2) ** 0.5
-        shoulder_to_neck = max( (((dat[2] - dat[4]) ** 2 + (dat[3] - dat[5]) ** 2) ** 0.5),
-                                (((dat[2] - dat[10]) ** 2 + (dat[3] - dat[11]) ** 2) ** 0.5) )
-
-        hist_data.append(nose_to_neck/shoulder_to_neck)
-        print(nose_to_neck, shoulder_to_neck, nose_to_neck/shoulder_to_neck) # 비율로 히스토그램 그려 확인하기
-
-    plt.hist(hist_data, bins=[0,1,2,3,4,5,6,7,8,9,10])
-    plt.show()
-    """
-
-    skf = StratifiedKFold(n_splits=10)
+    # skf = StratifiedKFold(n_splits=10)
     X = []
     y = []
     for dat in data:
-        X.append(dat[0: 36*params['interval']])
-        y.append(dat[36*params['interval']])
+        X.append(dat[0: 36*params['interval']*2])
+        y.append(dat[36*params['interval']*2])
+
+    print len(X)
+    print len(X[0])
+    print len(y)
+    print set(y)
 
     X = np.asarray(X)
     y = np.asarray(y)
 
-    # visualize = Visualizer(info, frame)
-
-    # visualize related
+    make_opencv_data(X, y)
+"""
     all_dict = {}
     for info in all_info:
         file_num = info[0]
@@ -494,7 +643,7 @@ if __name__ == '__main__':
 
         all_dict[file_num][person_id].append(info[2:4])
 
-    all_info = np.asarray(all_info)  # data set 순서에 맞춰서 저장되어 있는 파일
+    all_info = np.asarray(all_info)
 
     precision = 0
     recall = 0
@@ -504,6 +653,9 @@ if __name__ == '__main__':
     for f_num in files:
         test_idx = []
         train_idx = []
+
+        if f_num != 172:
+            continue
 
         for i, f_info in enumerate(all_info):
             if f_info[0] == f_num:
@@ -522,13 +674,26 @@ if __name__ == '__main__':
         y_train, y_test = y[train_idx], y[test_idx]
         info_test = all_info[test_idx]
 
-        # predict_label = support_vector_machine_classifier_(X_train, y_train, X_test)
 
-        # suvec = support_vector_machine_classifier_(X_train, y_train, X_test)
-        svc = SVC()
-        fit_svc = svc.fit(X_train, y_train)
-        # print(fit_svc.__getattribute__()) # TODO: 추후에 이것으로 C++에서 SVM돌려야함
-        predict_label = svc.predict(y_test)
+        model = support_vector_machine_classifier_(X_train, y_train)
+
+        
+        print("result:",model.predict(test))
+        print("C value:", model.__getattribute__('C'))
+        print("gamma value:", model.__getattribute__("gamma"))
+        print("params: ", model.get_params)
+        save_model_to_xml_(model)
+        
+        # print(fit_svc.__getattribute__())
+        # print(len(model.coef_[0]))
+        # print(model)
+        # print(model.dual_coef_)
+        # print(len(model.dual_coef_))
+        # print(len(model.dual_coef_[0]))
+        
+        predict_label = model.predict(X_test)
+        #print predict_label
+
         if not all_predict:
             all_predict = predict_label.tolist()
         else:
@@ -562,51 +727,11 @@ if __name__ == '__main__':
         result = precision_recall_fscore_support(y_test, predict_label, average='binary')
         print("file: ", f_num)
         print("precision: ", result[0], "recall: ", result[1])
-
-    result = precision_recall_fscore_support(test_all, all_predict, average='binary')
-    print("file: All")
-    print("precision: ", result[0], "recall: ", result[1])
-
-
-    """
-    # 파일 다 섞어서 하는 코드
-    precision = 0
-    recall = 0
-    for train_index, test_index in skf.split(X, y):
-
-        X_train, X_test = X[train_index], X[test_index]
-        y_train, y_test = y[train_index], y[test_index]
-        info_test = all_info[test_index]
-
-        predict_label = support_vector_machine_classifier_(X_train, y_train, X_test)
-
-        for i, index in enumerate(test_index):
-            result_txt = ""
-            if predict_label[i] == 1:
-                if y_test[i] == predict_label[i]:
-                    result_txt = "true_positive"
-                else:
-                    result_txt = "false_positive"
-
-            else:
-                if y_test[i] == predict_label[i]:
-                    result_txt = "true_negative"
-
-                else:
-                    result_txt = "false_negative"
-
-            file_num = info_test[i][0]
-            person_id = info_test[i][1]
-            idx = all_dict[file_num][person_id].index([info_test[i][2], info_test[i][3]])
-            all_dict[file_num][person_id][idx].append(result_txt)
-
-        result = precision_recall_fscore_support(y_test, predict_label, average='binary')
-        precision += result[0]
-        recall += result[1]
-
-    print("precision: %f" % (precision/10))
-    print("recall: %f" % (recall / 10))
-    """
+        
 
     ground_truth = read_gt_()
     drawing_graph_(all_dict, ground_truth)
+"""
+
+
+

@@ -3,14 +3,18 @@
 import json
 import os
 from xml.etree.ElementTree import ElementTree, parse, dump, Element, SubElement
-from sklearn.model_selection import StratifiedKFold
 from sklearn.metrics import precision_recall_fscore_support
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
 from sklearn.svm import SVC
 import copy
+from sklearn.model_selection import GridSearchCV
 
+grid_params_ = {
+    'kernel': ('linear', 'rbf', 'poly', 'sigmoid', 'precomputed'),
+    'C'     : [1, 5, 10]
+}
 
 params = {'step':      5,
           'interval':  30,
@@ -265,6 +269,7 @@ class DataLoader:
             f = open(_data_dir_path, 'r')
 
             data = {}
+
 
             for lines in f.readlines():
                 split_line = lines.split(',')
@@ -607,10 +612,11 @@ if __name__ == '__main__':
     save_dir_path = "C:\\Users\\JM\\Desktop\\Data\\ETRIrelated\\preprocess_data"
 
     loader = DataLoader(json_dir_path, xml_dir_path, save_dir_path, files)
+    """
     if not os.listdir(save_dir_path):
         loader.preprocess_data_()  # _nomalize=True, _scaling=True)
-
-    data, all_info = loader.load_data_("C:\\Users\\JM\\Desktop\\Data\\ETRIrelated\\preprocess_data")
+    """
+    data, all_info = loader.load_data_("D:\\workspace\\github\\svm_loader\\preprocess_data")
 
 
     # skf = StratifiedKFold(n_splits=10)
@@ -628,8 +634,8 @@ if __name__ == '__main__':
     X = np.asarray(X)
     y = np.asarray(y)
 
-    make_opencv_data(X, y)
-"""
+    # make_opencv_data(X, y)
+
     all_dict = {}
     for info in all_info:
         file_num = info[0]
@@ -674,10 +680,27 @@ if __name__ == '__main__':
         y_train, y_test = y[train_idx], y[test_idx]
         info_test = all_info[test_idx]
 
+        svc = SVC()
+        clf = GridSearchCV(svc, grid_params_)
+        clf.fit(X_train, y_train)
+        print "\n\n"
 
-        model = support_vector_machine_classifier_(X_train, y_train)
+        print clf
+        print "\n\n"
 
-        
+        print clf.cv_results_
+        print "\n\n"
+
+        print clf.best_estimator_
+        print "\n\n"
+
+        print clf.best_params_
+        print "\n\n"
+
+        print clf.best_score_
+        # model = support_vector_machine_classifier_(X_train, y_train)
+
+        """
         print("result:",model.predict(test))
         print("C value:", model.__getattribute__('C'))
         print("gamma value:", model.__getattribute__("gamma"))
@@ -727,11 +750,11 @@ if __name__ == '__main__':
         result = precision_recall_fscore_support(y_test, predict_label, average='binary')
         print("file: ", f_num)
         print("precision: ", result[0], "recall: ", result[1])
-        
+        """
 
-    ground_truth = read_gt_()
-    drawing_graph_(all_dict, ground_truth)
-"""
+    # ground_truth = read_gt_()
+    # drawing_graph_(all_dict, ground_truth)
+
 
 
 

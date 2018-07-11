@@ -6,3 +6,5 @@
 *.txt
 *.idx
 *.log
+*.hdf5
+*.pyc

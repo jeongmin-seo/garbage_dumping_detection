@@ -11,19 +11,21 @@ from sklearn.svm import SVC
 import copy
 from sklearn.model_selection import GridSearchCV
 
-grid_params_ = {
-    'kernel': ('linear', 'rbf', 'poly', 'sigmoid', 'precomputed'),
-    'C'     : [1, 5, 10]
-}
+grid_params_ = [{'kernel': ['rbf'], 'gamma': [1e-3, 1e-4, 'auto'], 'C': [1, 10, 100, 1000]},
+                {'kernel': ['linear'], 'C': [1, 10, 100, 1000]},
+                {'kernel': ['poly'], 'gamma':[1e-3, 1e-4, 'auto'],
+                 'C': [1, 10, 100, 1000], 'degree': [2, 3, 4, 5]},
+                {'kernel': ['sigmoid'], 'C': [1, 10, 100, 1000], 'gamma':[1e-3, 1e-4, 'auto']}]
 
-params = {'step':      5,
-          'interval':  30,
-          'threshold': 15,
+params = {'step':      1,
+          'interval':  1,
+          'threshold': 0,
           'posi_label': 1,
           'bDrawGraph': True,
-          'bUsingDisparity': True
+          'bUsingDisparity': False,
+          'bNorm': False
           }
-
+"""
 # bending pose
 files = [5, 15, 17, 18, 28,
          31, 41, 42, 58, 100,
@@ -42,6 +44,7 @@ frame = [703, 319, 278, 224, 755,
          369, 269, 839, 628, 522,
          715, 1194, 176, 352, 252]
 # 419, 99 839,
+"""
 
 """
 # class 2
@@ -51,14 +54,15 @@ files = [6, 23, 13, 46, 57,
 frame = [593, 509, 329, 639, 824,
          134, 486, 319, 599]
 """
-"""
+
+
 # class 3
 files = [214, 195, 192, 188, 187,
          184, 183, 157, 123]
 
 frame = [344, 271, 279, 367, 556,
          1596, 905, 409, 219]
-"""
+
 # info 형태 [file_num, id, 시작 frame, 끝 frame]
 
 
@@ -161,26 +165,26 @@ class DataLoader:
         else:
             return False
 
-    @staticmethod
-    def packaging_preprocess_data_(_key_point, _label, _object, _attr): #, _normalize, _scaling):
+    # @staticmethod
+    def packaging_preprocess_data_(self, _key_point, _label, _object, _attr, _normalize, _scaling): #, _normalize, _scaling):
         result_data = []
         point = _key_point
         result_data.append(_object.find('ID').text)
         result_data.append(_object.find('Type').text)
         result_data.append(_attr['frameNum'])
 
-        """
+
         # interpolation 부분 넣기
         if _normalize:
-            point = normalize_pose_(point)
+            point = self.normalize_pose_(point)
 
         if _scaling:
-            point = scaling_data_(point)
-        """
+            point = self.scaling_data_(point)
+
         for i in range(18):
             result_data.append(str(point[i * 3]))
             result_data.append(str(point[i * 3 + 1]))
-            # result_data.append(str(point[i * 3 + 2]))
+            result_data.append(str(point[i * 3 + 2]))
         result_data.append(str(_label))
 
         return result_data
@@ -209,7 +213,7 @@ class DataLoader:
 
         f.close()
 
-    def preprocess_data_(self, _ground_truth="macro"): # _nomalize, _scaling, _ground_truth="macro"):
+    def preprocess_data_(self, _nomalize, _scaling, _ground_truth="macro"): # _nomalize, _scaling, _ground_truth="macro"):
         for file_number in self.file_num_list:
             xml_file_path = self.xml_dir_path + "\\%03d.xml" % file_number
 
@@ -239,7 +243,7 @@ class DataLoader:
                         if int(object.find('Type').text) == 111:
                             if _ground_truth == "macro":
                                 if check_macro_file(file_number, int(attr['frameNum']), int(object.find('ID').text)):  # positive frame 확인
-                                    label = 1
+                                    label = 3
                             """
                             else:
                                 if check_verb_file(file, int(attr['frameNum'].text)):
@@ -247,7 +251,7 @@ class DataLoader:
                             """
 
                         packaging_data = \
-                            self.packaging_preprocess_data_(key_point, label, object, attr) #, _nomalize, _scaling)
+                            self.packaging_preprocess_data_(key_point, label, object, attr ,_nomalize, _scaling) #, _nomalize, _scaling)
                         self.saving_preprocess_data_(packaging_data, file_number)
 
 
@@ -269,7 +273,6 @@ class DataLoader:
             f = open(_data_dir_path, 'r')
 
             data = {}
-
 
             for lines in f.readlines():
                 split_line = lines.split(',')
@@ -322,18 +325,30 @@ class DataLoader:
                 label_check = 0
                 action_data.append([])
                 for i in frame_key[start:end]:
-
+                    """
                     print(len(_read_data[person_id][i]))
                     tmp_list = copy.deepcopy(_read_data[person_id][i])
                     tmp_list = self.normalize_pose_(tmp_list)
-                    tmp_list = self.scaling_data_(tmp_list)
 
+                    if params['bNorm']:
+                        tmp_list = self.scaling_data_(tmp_list)
+                    """
                     for j in range(36):
                         action_data[-1].append(tmp_list[j])
+
+                    if params['bUsingDisparity']:
+                        if i == frame_key[start]:
+                            for m in range(36):
+                                action_data[-1].append(0)
+
+                        else:
+                            for k in range(36):
+                                action_data[-1].append(_read_data[person_id][i][k] - _read_data[person_id][i - 1][k])
 
                     if _read_data[person_id][i][-1] == 1:
                         label_check += 1
 
+                """
                 if params['bUsingDisparity']:
                     for i in frame_key[start:end]:
 
@@ -344,7 +359,7 @@ class DataLoader:
                         else:
                             for j in range(36):
                                 action_data[-1].append(_read_data[person_id][i][j] - _read_data[person_id][i-1][j])
-
+                """
                 if label_check > params['threshold']:
                     action_data[-1].append(1)
 
@@ -364,14 +379,23 @@ class DataLoader:
 
         neck_x = _pose_data[2]
         neck_y = _pose_data[3]
-        base_index = 0
+        # base_index = 0
 
+        for base_index in range(18):
+            _pose_data[base_index * 2] -= neck_x
+            _pose_data[base_index * 2 + 1] -= neck_y  # 목좌표로 좌표계 변환
+
+        """
         # print(len(_pose_data))
         while base_index < 18:
+            if _pose_data[base_index * 2] == 0 and _pose_data[base_index * 2 + 1] == 0:
+                base_index += 1
+                continue
+
             _pose_data[base_index * 2] -= neck_x
             _pose_data[base_index * 2 + 1] -= neck_y  # 목좌표로 좌표계 변환
             base_index += 1
-
+        """
         return _pose_data
 
     ########################################################################
@@ -381,13 +405,19 @@ class DataLoader:
     def scaling_data_(_pose_data):
 
         neck = [_pose_data[2], _pose_data[3]]
-        right_shoulder = [_pose_data[4], _pose_data[5]]
-        left_shoulder = [_pose_data[10], _pose_data[11]]
+        # right_shoulder = [_pose_data[4], _pose_data[5]]
+        # left_shoulder = [_pose_data[10], _pose_data[11]]
+        right_factor = [_pose_data[16], _pose_data[17]]
+        left_factor = [_pose_data[22], _pose_data[23]]
 
-        left_dist = ((left_shoulder[0] - neck[0]) ** 2 + (left_shoulder[1] - neck[1]) ** 2) ** 0.5
-        right_dist = ((right_shoulder[0] - neck[0]) ** 2 + (right_shoulder[1] - neck[1]) ** 2) ** 0.5
+        # left_dist = ((left_shoulder[0] - neck[0]) ** 2 + (left_shoulder[1] - neck[1]) ** 2) ** 0.5
+        # right_dist = ((right_shoulder[0] - neck[0]) ** 2 + (right_shoulder[1] - neck[1]) ** 2) ** 0.5
 
-        dist = max(left_dist, right_dist)
+        left_dist = ((left_factor[0] - neck[0]) ** 2 + (left_factor[1] - neck[1]) ** 2) ** 0.5
+        right_dist = ((right_factor[0] - neck[0]) ** 2 + (right_factor[1] - neck[1]) ** 2) ** 0.5
+
+        # dist = max(left_dist, right_dist)
+        dist = (left_dist + right_dist) / 2
         base_index = 0
 
         while base_index < 18:
@@ -399,7 +429,7 @@ class DataLoader:
 
 
 def check_macro_file(_file_num, _frame_num, _person_id):
-    macro_file_path = "C:\\Users\\JM\\Desktop\\Data\\ETRIrelated\\pose classification\\class1macro.txt"
+    macro_file_path = "C:\\Users\\JM\\Desktop\\Data\\ETRIrelated\\pose classification\\class3macro.txt"
     f = open(macro_file_path, 'r')
     result = False
     for lines in f.readlines():
@@ -421,7 +451,7 @@ def check_macro_file(_file_num, _frame_num, _person_id):
 def support_vector_machine_classifier_(train_data, train_class):
     from sklearn.svm import SVC
 
-    return SVC(kernel='linear', C=0.1).fit(train_data, train_class)
+    return SVC(kernel='rbf', C=1).fit(train_data, train_class)
 
 
 def drawing_graph_(_all_dict, _ground_truth):
@@ -592,8 +622,9 @@ def indent(elem, level=0):
 
 
 def make_opencv_data(_data, _label):
-    f = open('opencv_data.txt', 'w')
+    f = open('class1.txt', 'w')
 
+    l = 0
     for i, dat in enumerate(_data):
         for element in dat:
             tmp = '%f,' % element
@@ -603,39 +634,48 @@ def make_opencv_data(_data, _label):
         f.write(tmp)
 
     f.close()
+    print(l)
 
 if __name__ == '__main__':
 
     # read data
-    xml_dir_path = "C:\\Users\JM\\Desktop\Data\\ETRIrelated\\final_xml"
+    xml_dir_path = "C:\\Users\\JM\\Desktop\\Data\\ETRIrelated\\final_xml"
     json_dir_path = "D:\\etri_data\\pose"
     save_dir_path = "C:\\Users\\JM\\Desktop\\Data\\ETRIrelated\\preprocess_data"
 
     loader = DataLoader(json_dir_path, xml_dir_path, save_dir_path, files)
-    """
-    if not os.listdir(save_dir_path):
-        loader.preprocess_data_()  # _nomalize=True, _scaling=True)
-    """
-    data, all_info = loader.load_data_("D:\\workspace\\github\\svm_loader\\preprocess_data")
 
+    if not os.listdir(save_dir_path):
+        loader.preprocess_data_(_nomalize=False, _scaling=False)  # _nomalize=True, _scaling=True)
+
+    """
+    data, all_info = loader.load_data_(save_dir_path)
 
     # skf = StratifiedKFold(n_splits=10)
     X = []
     y = []
     for dat in data:
-        X.append(dat[0: 36*params['interval']*2])
-        y.append(dat[36*params['interval']*2])
+        if params['bUsingDisparity']:
+            X.append(dat[0: 36*params['interval']*2])
+            y.append(dat[36*params['interval']*2])
 
+        else:
+            X.append(dat[0: 36 * params['interval']])
+            y.append(dat[36 * params['interval']])
+    """
+    """
     print len(X)
     print len(X[0])
+    print X[0]
+    print all_info[0]
     print len(y)
     print set(y)
-
-    X = np.asarray(X)
-    y = np.asarray(y)
+    """
+    # X = np.asarray(X)
+    # y = np.asarray(y)
 
     # make_opencv_data(X, y)
-
+    """
     all_dict = {}
     for info in all_info:
         file_num = info[0]
@@ -655,6 +695,27 @@ if __name__ == '__main__':
     recall = 0
     all_predict = []
     test_all = []
+
+    svc = SVC()
+    clf = GridSearchCV(svc, grid_params_)
+    clf.fit(X, y)
+    print "\n\n"
+
+    print clf
+    print "\n\n"
+
+    print clf.cv_results_
+    print "\n\n"
+
+    print clf.best_estimator_
+    print "\n\n"
+
+    print clf.best_params_
+    print "\n\n"
+
+    print clf.best_score_
+
+    
     # 파일별로 학습하고 test 하는 코드
     for f_num in files:
         test_idx = []
@@ -680,6 +741,7 @@ if __name__ == '__main__':
         y_train, y_test = y[train_idx], y[test_idx]
         info_test = all_info[test_idx]
 
+
         svc = SVC()
         clf = GridSearchCV(svc, grid_params_)
         clf.fit(X_train, y_train)
@@ -698,10 +760,11 @@ if __name__ == '__main__':
         print "\n\n"
 
         print clf.best_score_
-        # model = support_vector_machine_classifier_(X_train, y_train)
+        
+        model = support_vector_machine_classifier_(X_train, y_train)
 
-        """
-        print("result:",model.predict(test))
+        
+        print("result:",model.predict(X_test))
         print("C value:", model.__getattribute__('C'))
         print("gamma value:", model.__getattribute__("gamma"))
         print("params: ", model.get_params)
@@ -715,13 +778,13 @@ if __name__ == '__main__':
         # print(len(model.dual_coef_[0]))
         
         predict_label = model.predict(X_test)
-        #print predict_label
-
+        print predict_label
+        
         if not all_predict:
             all_predict = predict_label.tolist()
         else:
             all_predict.extend(predict_label.tolist())
-
+        
         if not test_all:
             test_all = y_test.tolist()
         else:
